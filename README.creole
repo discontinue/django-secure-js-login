@@ -22,7 +22,7 @@ Oversimplify procedure:
 The plaintext password would be not leave the client.
 The hash that is sent to the server, is not a simple //SHA1(password)//!
 
-The detailed procedure explained here: [[http://www.pylucid.org/permalink/34/js-sha-login-pseudo-code|JS-SHA-Login - pseudo code]]
+The detailed procedure explained in: [[https://github.com/jedie/django-secure-js-login/blob/master/js_sha_login_pseudocode.py|js_sha_login_pseudocode.py - pseudo code]]
 
 The procedure works only with Javascript and a AJAX views.
 For getting the login form, the {{{challenge}}} and {{{salt}}} we used AJAX (with jQuery).
