@@ -24,12 +24,12 @@ from django.utils.translation import ugettext as _
 from pylucid_project.apps.pylucid.decorators import check_permissions, render_to
 from pylucid_project.apps.pylucid.models.log import LogEntry
 from pylucid_project.apps.pylucid_admin.admin_menu import AdminMenu
-from pylucid_project.pylucid_plugins.auth.forms import JSPasswordChangeForm
-from pylucid_project.pylucid_plugins.auth.preference_forms import AuthPreferencesForm
+from secure_js_login.forms import JSPasswordChangeForm
+from secure_js_login.preference_forms import AuthPreferencesForm
 
-from pylucid_project.utils import crypt
+from secure_js_login.utils import crypt
 
-from pylucid_project.pylucid_plugins.auth.views import _get_challenge, \
+from secure_js_login.views import _get_challenge, \
     _get_loop_count
 
 

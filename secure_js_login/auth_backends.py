@@ -27,7 +27,7 @@ from django.utils.translation import ugettext as _
 
 from django_tools.utils.messages import failsafe_message
 
-from pylucid_project.utils import crypt
+from secure_js_login.utils import crypt
 from pylucid_project.apps.pylucid.models import LogEntry
 
 

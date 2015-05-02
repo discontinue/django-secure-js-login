@@ -3,7 +3,7 @@
 
 from django.conf.urls import patterns, url
 
-from pylucid_project.pylucid_plugins.auth import views
+from secure_js_login import views
 
 
 urlpatterns = patterns('',

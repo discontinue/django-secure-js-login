@@ -28,10 +28,10 @@ from pylucid_project.apps.pylucid.decorators import check_request
 from pylucid_project.apps.pylucid.models import LogEntry
 from pylucid_project.apps.pylucid.models.pluginpage import PluginPage
 from pylucid_project.apps.pylucid.shortcuts import bad_request, ajax_response
-from pylucid_project.pylucid_plugins.auth.forms import HoneypotForm
-from pylucid_project.pylucid_plugins.auth.models import HonypotAuth, \
+from secure_js_login.forms import HoneypotForm
+from secure_js_login.models import HonypotAuth, \
     CNONCE_CACHE
-from pylucid_project.utils import crypt
+from secure_js_login.utils import crypt
 
 # auth own stuff
 from forms import WrongUserError, UsernameForm, ShaLoginForm

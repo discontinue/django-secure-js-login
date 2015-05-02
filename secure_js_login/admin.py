@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from pylucid_project.pylucid_plugins.auth.models import HonypotAuth,\
+from secure_js_login.models import HonypotAuth,\
     HonypotUsername, HonypotPassword, HonypotIP
 
 

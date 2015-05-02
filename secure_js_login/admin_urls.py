@@ -10,7 +10,7 @@
 
 from django.conf.urls import patterns, url
 
-from pylucid_project.pylucid_plugins.auth.admin_views import profile_index, JS_password_change
+from secure_js_login.admin_views import profile_index, JS_password_change
 from django.contrib.auth.views import password_change, password_change_done
 
 urlpatterns = patterns('',

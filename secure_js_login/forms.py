@@ -17,7 +17,7 @@ from django.contrib.auth.models import User
 from django.utils.translation import ugettext as _
 from django.forms.forms import NON_FIELD_ERRORS
 
-from pylucid_project.utils import crypt
+from secure_js_login.utils import crypt
 from pylucid_project.apps.pylucid.models import UserProfile
 from django.forms.util import ErrorDict
 

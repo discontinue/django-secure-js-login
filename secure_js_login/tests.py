@@ -41,9 +41,9 @@ from django.conf import settings
 from django.test.client import Client
 
 from pylucid_project.tests.test_tools import basetest
-from pylucid_project.utils import crypt
+from secure_js_login.utils import crypt
 
-from pylucid_project.pylucid_plugins.auth.models import CNONCE_CACHE
+from secure_js_login.models import CNONCE_CACHE
 from preference_forms import AuthPreferencesForm
 
 
