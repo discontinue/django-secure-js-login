@@ -9,7 +9,7 @@
     more info:
         http://www.pylucid.org/permalink/42/secure-login-without-https
 
-    :copyleft: 2007-2013 by the PyLucid team, see AUTHORS for more details.
+    :copyleft: 2007-2015 by the PyLucid team, see AUTHORS for more details.
     :license: GNU GPL v3 or above, see LICENSE for more details
 """
 
@@ -28,13 +28,11 @@ from pylucid_project.apps.pylucid.decorators import check_request
 from pylucid_project.apps.pylucid.models import LogEntry
 from pylucid_project.apps.pylucid.models.pluginpage import PluginPage
 from pylucid_project.apps.pylucid.shortcuts import bad_request, ajax_response
-from secure_js_login.forms import HoneypotForm
-from secure_js_login.models import HonypotAuth, \
-    CNONCE_CACHE
-from secure_js_login.utils import crypt
 
 # auth own stuff
-from forms import WrongUserError, UsernameForm, ShaLoginForm
+from secure_js_login.models import CNONCE_CACHE
+from secure_js_login.utils import crypt
+from secure_js_login.forms import WrongUserError, UsernameForm, ShaLoginForm
 from preference_forms import AuthPreferencesForm
 
 
@@ -70,34 +68,6 @@ def _get_loop_count():
     loop_count = preferences["loop_count"]
     return loop_count
 
-
-@csrf_exempt
-def login_honeypot(request):
-    """
-    A login honypot.
-    """
-    faked_login_error = False
-    if request.method == 'POST':
-        form = HoneypotForm(request.POST)
-        if form.is_valid():
-            username = form.cleaned_data["username"]
-            password = form.cleaned_data["password"]
-            HonypotAuth.objects.add(request, username, password)
-            messages.error(request, _("username/password wrong."))
-            form = HoneypotForm(initial={"username": username})
-            faked_login_error = True
-    else:
-        form = HoneypotForm()
-    context = {
-        "form": form,
-        "form_url": request.path,
-        "page_robots": "noindex,nofollow",
-    }
-
-    response = render_to_response("auth/login_honeypot.html", context, context_instance=RequestContext(request))
-    if faked_login_error:
-        response.status_code = 401
-    return response
 
 
 def lucidTag(request):

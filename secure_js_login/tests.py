@@ -13,8 +13,6 @@
     :license: GNU GPL v3 or above, see LICENSE for more details
 """
 
-
-import os
 import sys
 import hashlib
 
@@ -43,7 +41,7 @@ from django.test.client import Client
 from pylucid_project.tests.test_tools import basetest
 from secure_js_login.utils import crypt
 
-from secure_js_login.models import CNONCE_CACHE
+from honypot_login.models import CNONCE_CACHE
 from preference_forms import AuthPreferencesForm
 
 

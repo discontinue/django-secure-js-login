@@ -6,7 +6,7 @@
 
     A secure JavaScript SHA-1 AJAX Login.
 
-    :copyleft: 2007-2013 by the PyLucid team, see AUTHORS for more details.
+    :copyleft: 2007-2015 by the PyLucid team, see AUTHORS for more details.
     :license: GNU GPL v3 or above, see LICENSE for more details
 """
 
@@ -19,18 +19,11 @@ from django.forms.forms import NON_FIELD_ERRORS
 
 from secure_js_login.utils import crypt
 from pylucid_project.apps.pylucid.models import UserProfile
-from django.forms.util import ErrorDict
+
 
 
 class WrongUserError(Exception):
     pass
-
-
-class HoneypotForm(forms.Form):
-    username = forms.CharField(max_length=30, label=_('username'))
-    password = forms.CharField(max_length=128, label=_('password'),
-        widget=forms.PasswordInput
-    )
 
 
 class UsernameForm(forms.Form):

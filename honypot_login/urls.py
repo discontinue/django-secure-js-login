@@ -3,7 +3,7 @@
 
 from django.conf.urls import patterns, url
 
-from secure_js_login import views
+from honypot_login import views
 
 
 urlpatterns = patterns('',
