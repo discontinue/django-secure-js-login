@@ -1,2 +1,69 @@
-# django-secure-js-login
-JavaScript Challenge-handshake authentication django app
+= django-secure-js-login
+
+JavaScript Challenge-handshake authentication django app.
+
+First:
+The JS-SHA1-Login is not a simple //"send username + SHA(password)"//
+It is more a [[http://en.wikipedia.org/wiki/Challenge-handshake_authentication_protocol|Challenge-handshake authentication protocol]]!
+
+== Status
+
+Currently it's not usable, because it's only splited from [[https://github.com/jedie/PyLucid|PyLucid git repository]] and needs some changes!
+
+=== how
+
+Oversimplify procedure:
+
+# client get a //challenge// and a //salt// from the server.
+# user enters his name and a password.
+# JavaScript generate a //SHA1 hash// from password + challenge + salt + nonce
+# client send username + //SHA1 hash// to the server
+
+The plaintext password would be not leave the client.
+The hash that is sent to the server, is not a simple //SHA1(password)//!
+
+The detailed procedure explained here: [[http://www.pylucid.org/permalink/34/js-sha-login-pseudo-code|JS-SHA-Login - pseudo code]]
+
+The procedure works only with Javascript and a AJAX views.
+For getting the login form, the {{{challenge}}} and {{{salt}}} we used AJAX (with jQuery).
+For building the SHA1, we used the [[http://pajhome.org.uk/crypt/md5/sha1.html|SHA1 JavaScript implementation by Paul Johnston]].
+
+
+== secure?
+
+JS-SHA1 Login is not really secure in comparison to https! e.g. the client can't validate if he really communicate with the server or with a [[http://en.wikipedia.org/wiki/Man-in-the-middle|Man-in-the-middle]]. JS-SHA1-Login does not protect you against an [[http://en.wikipedia.org/wiki/Session_Hijacking|Session Hijacking]]
+
+However the used procedure is safer than plain-text authentication. In addition, on the server no plain-text passwords are stored. With the data that are stored on the server, can not be used alone.
+
+If you have [[http://en.wikipedia.org/wiki/HTTPS|https]], you can combine it with JS-SHA1 login, similar to combine a digest auth with https.
+
+More information: [[http://www.pylucid.org/permalink/35/warum-js-sha-login-sinn-macht|Warum JS-SHA-Login Sinn macht...]] (german only, sorry)
+
+
+=== why?
+
+Many, if not even all CMS/wiki/forum, used unsecure Login. User name and password send in **plaintext** over the Internet. A reliable solution offers only [[http://en.wikipedia.org/wiki/HTTPS|https]].
+
+The Problem: No Provider offers secured HTTP connection for little money :( We have been thinking, how can we still accomplish a secure authentication.
+
+
+=== alternative solutions
+
+* [[http://en.wikipedia.org/wiki/Digest_access_authentication|Digest access authentication]] (implementation in django exist: [[http://bitbucket.org/akoha/django-digest/wiki/Home|django-digest]]):
+** pro
+*** Browser implemented it, so no additional JavaScript needed
+** cons
+*** Password hash must be saved on the server, without any salt! The hash can be used for login, because: {{{hash = MD5(username:realm:password)}}}
+*** used old MD5 hash
+
+
+
+=== Links
+
+* [[http://pajhome.org.uk/crypt/md5/sha1.html|SHA1 JavaScript implementation by Paul Johnston]] (BSD License)
+* Python-Forum Threads (de):
+** [[http://www.python-forum.de/viewtopic.php?f=7&t=22163|Digest auth als Alternative?]] (03.2010)
+** [[http://www.python-forum.de/viewtopic.php?f=3&t=8180|Sinn oder Unsinn des PyLucids JS-SHA1-Login...]] (12.2006)
+** [[http://www.python-forum.de/topic-8182.html|Wie Session-Hijacking verhindern?]] (12.2006)
+** [[http://www.python-forum.de/viewtopic.php?t=3345|html-LogIn: Passwort mit SHA1]] (06.2005)
+* [[http://groups.google.de/group/de.comp.lang.python/browse_thread/thread/8c06df736e8183f9/64b7183d860c4bf9?#64b7183d860c4bf9|Diskussion auf de.comp.lang.python]] (08.2006)
