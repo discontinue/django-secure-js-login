@@ -13,14 +13,14 @@
     :license: GNU GPL v3 or above, see LICENSE for more details
 """
 
-from django.contrib import auth, messages
+from django.contrib import messages
 from django.template import RequestContext
 from django.utils.translation import ugettext as _
 from django.shortcuts import render_to_response
-from django.views.decorators.csrf import csrf_protect, csrf_exempt
+from django.views.decorators.csrf import csrf_exempt
 
-from honypot_login.forms import HoneypotForm
-from honypot_login.models import HonypotAuth
+from secure_js_login.honypot.forms import HoneypotForm
+from secure_js_login.honypot.models import HonypotAuth
 
 
 @csrf_exempt
@@ -43,10 +43,13 @@ def login_honeypot(request):
     context = {
         "form": form,
         "form_url": request.path,
-        "page_robots": "noindex,nofollow",
     }
 
-    response = render_to_response("auth/login_honeypot.html", context, context_instance=RequestContext(request))
+    response = render_to_response(
+        "admin/login.html",
+        context,
+        context_instance=RequestContext(request)
+    )
     if faked_login_error:
         response.status_code = 401
     return response

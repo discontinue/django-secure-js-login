@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
+TEMPLATE_DIRS = [os.path.join(BASE_DIR, "example_project", "templates")]
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
@@ -27,6 +28,14 @@ TEMPLATE_DEBUG = True
 ALLOWED_HOSTS = []
 
 
+# Disable cache
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    }
+}
+
+
 # Application definition
 
 INSTALLED_APPS = (
@@ -36,6 +45,7 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    "secure_js_login.honypot",
 )
 
 MIDDLEWARE_CLASSES = (
@@ -51,6 +61,9 @@ MIDDLEWARE_CLASSES = (
 ROOT_URLCONF = 'example_project.urls'
 
 WSGI_APPLICATION = 'example_project.wsgi.application'
+
+
+
 
 
 # Database

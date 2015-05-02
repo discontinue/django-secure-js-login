@@ -41,7 +41,7 @@ from django.test.client import Client
 from pylucid_project.tests.test_tools import basetest
 from secure_js_login.utils import crypt
 
-from honypot_login.models import CNONCE_CACHE
+from secure_js_login.honypot.models import CNONCE_CACHE
 from preference_forms import AuthPreferencesForm
 
 

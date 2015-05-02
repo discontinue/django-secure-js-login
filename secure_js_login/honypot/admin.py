@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from honypot_login.models import HonypotAuth,\
+from secure_js_login.honypot.models import HonypotAuth,\
     HonypotUsername, HonypotPassword, HonypotIP
 
 

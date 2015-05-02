@@ -1,6 +1,5 @@
-{% extends base_template_name %}
+{% load i18n %}
 
-{% block extrahead %}{{ block.super }}
 <script type="text/javascript">
 try {
     jQuery(document);
@@ -14,13 +13,11 @@ jQuery(document).ready(function($) {
     $("#login_form input[type=submit]").slideUp(5000);
 });
 </script>
-{% endblock %}
 
-{% block content %}
-<form method="post" action="{{ form_url }}" class="pylucid_form" id="login_form">
+<form method="post" action="{{ form_url }}" id="login_form">
     <fieldset><h2>Login Form</h2>
-        {% include "admin/pylucid/includes/pylucid_formset.html" %}
+        {{ form }}
         <input type="submit" value="login" />
     </fieldset>
 </form>
-{% endblock content %}
+

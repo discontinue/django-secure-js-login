@@ -1,8 +1,10 @@
 # coding: utf-8
 
+from __future__ import unicode_literals
 
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
+from django.utils.encoding import python_2_unicode_compatible
 
 from django_tools.models import UpdateTimeBaseModel # New in django-tools v0.24.2
 
@@ -30,37 +32,40 @@ class CountManager(models.Manager):
         return obj
 
 
+@python_2_unicode_compatible
 class HonypotUsername(models.Model):
     username = models.CharField(db_index=True, max_length=30)
     count = models.PositiveIntegerField(default=1,
         help_text=_("Number of use of this username.")
     )
     objects = CountManager("username")
-    def __unicode__(self):
+    def __str__(self):
         return u"%s (count: %i)" % (self.username, self.count)
     class Meta:
         ordering = ('-count',)
 
 
+@python_2_unicode_compatible
 class HonypotPassword(models.Model):
     password = models.CharField(db_index=True, max_length=128)
     count = models.PositiveIntegerField(default=1,
         help_text=_("Number of use of this password.")
     )
     objects = CountManager("password")
-    def __unicode__(self):
+    def __str__(self):
         return u"%s (count: %i)" % (self.password, self.count)
     class Meta:
         ordering = ('-count',)
 
 
+@python_2_unicode_compatible
 class HonypotIP(models.Model):
     ip_address = models.IPAddressField(db_index=True)
     count = models.PositiveIntegerField(default=1,
         help_text=_("Number of logins from this remote IP address.")
     )
     objects = CountManager("ip_address")
-    def __unicode__(self):
+    def __str__(self):
         return u"%s (count: %i)" % (self.ip_address, self.count)
     class Meta:
         ordering = ('-count',)
@@ -89,6 +94,7 @@ class HonypotAuthManager(models.Manager):
         return obj
 
 
+@python_2_unicode_compatible
 class HonypotAuth(UpdateTimeBaseModel):
     """
     inherited attributes from UpdateTimeBaseModel:
@@ -104,7 +110,7 @@ class HonypotAuth(UpdateTimeBaseModel):
         help_text=_("Number of usage this username/password from the same remote IP address.")
     )
 
-    def __unicode__(self):
+    def __str__(self):
         return u"honypot login from %s [%s/%s] (count: %i)" % (
             self.ip_address, self.username, self.password, self.count
         )

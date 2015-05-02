@@ -1,7 +1,13 @@
-# -*- coding: utf-8 -*-
 
-from django.contrib.admin import AdminSite
 
-# Change the template for django's normal login.
-# So we can insert a link to JS-SHA-Login.
-AdminSite.login_template = "auth/django_login.html"
+from __future__ import absolute_import, division, print_function
+
+
+__version__ = (0,1,0,"beta")
+
+VERSION_STRING = '.'.join(str(part) for part in __version__)
+
+
+
+if __name__ == "__main__":
+    print(VERSION_STRING)
