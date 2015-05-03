@@ -79,7 +79,7 @@ def lucidTag(request):
         "honypot_url": "#top" # Don't use honypot
     }
     if request.user.is_authenticated():
-        template_name = "auth/logout_link.html"
+        template_name = "secure_js_login/logout_link.html"
         if hasattr(request.PYLUCID, "pagetree"):
             # We are on a normal cms page -> Dont's change the url
             url = ""
@@ -102,11 +102,11 @@ def lucidTag(request):
 
         https_urls = preferences["https_urls"]
         if not https_urls:
-            template_name = "auth/login_link.html"
+            template_name = "secure_js_login/login_link.html"
             url = ""
         else:
             # Use https for login
-            template_name = "auth/login_link_https.html"
+            template_name = "secure_js_login/login_link_https.html"
             url = "https://%s%s" % (request.get_host(), request.path)
 
         url += "?auth=login"
@@ -221,7 +221,7 @@ def _sha_auth(request):
         # everything is ok -> log the user in and display "last login" page message
         last_login = user2.last_login
         auth.login(request, user2)
-        message = render_to_string('auth/login_info.html', {"last_login":last_login})
+        message = render_to_string('secure_js_login/login_info.html', {"last_login":last_login})
         messages.success(request, message)
         return HttpResponse("OK", content_type="text/plain")
 
@@ -334,9 +334,9 @@ def _login_view(request):
 
     # return a string for replacing the normal cms page content
     if not request.is_ajax():
-        response = render_to_response('auth/sha_form_debug.html', context, context_instance=RequestContext(request))
+        response = render_to_response('secure_js_login/sha_form_debug.html', context, context_instance=RequestContext(request))
     else:
-        response = ajax_response(request, 'auth/sha_form.html', context, context_instance=RequestContext(request))
+        response = ajax_response(request, 'secure_js_login/sha_form.html', context, context_instance=RequestContext(request))
 
     return response
 
