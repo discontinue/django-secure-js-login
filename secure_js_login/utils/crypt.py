@@ -10,10 +10,11 @@
 
     unittest: ./dev_scripts/unittests/unittest_crypt.py
 
-    :copyleft: 2007-2013 by the PyLucid team, see AUTHORS for more details.
+    :copyleft: 2007-2015 by the PyLucid team, see AUTHORS for more details.
     :license: GNU GPL v3 or above, see LICENSE for more details.
 """
 
+from __future__ import unicode_literals
 
 import base64
 import hashlib
@@ -24,13 +25,13 @@ import sys
 import time
 
 if __name__ == "__main__":
-    print "Local DocTest..."
+    print("Local DocTest...")
     settings = type('Mock', (object,), {})()
     settings.SECRET_KEY = "DocTest"
-    smart_str = str
 else:
     from django.conf import settings
-    from django.utils.encoding import smart_str
+
+from django.utils.encoding import force_bytes, force_text
 
 
 # Warning: Debug must always be False in productiv environment!
@@ -49,6 +50,7 @@ OLD_SALT_LEN = 5 # old length of the random salt value
 SALT_LEN = 12 # new length of the random salt value
 
 HASH_LEN = 40 # length of a SHA-1 hexdigest
+HALF_HASH_LEN = 20
 
 # SHA-1 hexdigest + "sha1" + (2x "$") + salt length
 SALT_HASH_LEN = HASH_LEN + 4 + 2 + SALT_LEN
@@ -61,6 +63,11 @@ class SaltHashError(Exception):
 #______________________________________________________________________________
 
 SHA1_RE = re.compile(r'[a-f0-9]{40}$')
+
+
+def hash_hexdigest(txt):
+    return hashlib.sha1(force_bytes(txt)).hexdigest()
+
 
 def validate_sha_value(sha_value):
     """
@@ -79,7 +86,7 @@ def validate_sha_value(sha_value):
     >>> validate_sha_value("790f2ebcb902c966fb0e232515ec1319dc9118af")
     True
     """
-    if not isinstance(sha_value, basestring):
+    if not isinstance(sha_value, str):
         return False
 
     if SHA1_RE.match(sha_value):
@@ -114,10 +121,10 @@ def get_new_seed(can_debug=True):
         seed = "DEBUG_1234567890"
     else:
         raw_seed = "%s%s%s%s" % (
-            random.randint(0, sys.maxint - 1), os.getpid(), time.time(),
+            random.randint(0, sys.maxsize - 1), os.getpid(), time.time(),
             settings.SECRET_KEY
         )
-        seed = hashlib.sha1(raw_seed).hexdigest()
+        seed = hash_hexdigest(raw_seed)
 
     return seed
 
@@ -140,7 +147,7 @@ def get_pseudo_salt(*args):
     generate a pseudo salt (used, if user is wrong)
     """
     temp = "".join([repr(arg) for arg in args])
-    return hashlib.sha1(temp).hexdigest()[:SALT_LEN]
+    return hash_hexdigest(temp)[:SALT_LEN]
 
 
 def make_hash(txt, salt):
@@ -153,7 +160,9 @@ def make_hash(txt, salt):
     >>> make_hash(txt="test", salt='DEBUG')
     '790f2ebcb902c966fb0e232515ec1319dc9118af'
     """
-    sha1hash = hashlib.sha1(salt + smart_str(txt)).hexdigest()
+    txt = force_bytes(txt)
+    salt = force_bytes(salt)
+    sha1hash = hash_hexdigest(salt + txt)
     return sha1hash
 
 
@@ -252,40 +261,40 @@ def crypt(txt, key):
     >txt< and >key< should be unicode.
 
     >>> crypt("1234", "ABCD")
-    u'pppp'
+    'pppp'
     """
     if len(txt) != len(key):
         raise CryptLengthError("XOR cipher error: %r and %r must have the same length!" % (txt, key))
 
-    crypted = [unichr(ord(t) ^ ord(k)) for t, k in zip(txt, key)]
-    return u"".join(crypted)
+    crypted = [chr(ord(t) ^ ord(k)) for t, k in zip(txt, key)]
+    return force_text("".join(crypted))
 
 
 def encrypt(txt, key, use_base64=True, can_debug=True):
     """
     XOR ciphering with a SHA salt-hash checksum
 
-    >>> encrypt(u"1234", u"ABCD") # DEBUG is True in DocTest!
-    u'crypt 1234 with ABCD'
+    >>> encrypt("1234", "ABCD") # DEBUG is True in DocTest!
+    'crypt 1234 with ABCD'
 
-    >>> encrypt(u"1234", u"ABCD", can_debug=False)
-    u'sha1$DEBUG_123456$91ca222581d9b8f61934d7bf25fb3625141cda91cHBwcA=='
+    >>> encrypt("1234", "ABCD", can_debug=False)
+    'sha1$DEBUG_123456$91ca222581d9b8f61934d7bf25fb3625141cda91cHBwcA=='
 
-    >>> encrypt(u"1234", u"ABCD", use_base64=False, can_debug=False)
-    u'sha1$DEBUG_123456$91ca222581d9b8f61934d7bf25fb3625141cda91pppp'
+    >>> encrypt("1234", "ABCD", use_base64=False, can_debug=False)
+    'sha1$DEBUG_123456$91ca222581d9b8f61934d7bf25fb3625141cda91pppp'
     """
-    if not (isinstance(txt, unicode) and isinstance(key, unicode)):
+    if not (isinstance(txt, str) and isinstance(key, str)):
         raise UnicodeError("Only unicode allowed!")
 
     if can_debug and DEBUG:
         return "crypt %s with %s" % (txt, key)
 
     salt_hash = make_salt_hash(repr(txt))
-    salt_hash = unicode(salt_hash)
+    salt_hash = force_text(salt_hash)
 
     crypted = crypt(txt, key)
     if use_base64 == True:
-        crypted = base64.b64encode(crypted)
+        crypted = force_text(base64.b64encode(force_bytes(crypted)))
     return salt_hash + crypted
 
 
@@ -295,44 +304,44 @@ def decrypt(crypted, key, use_base64=True, can_debug=True):
     2. Compare the inserted sSHA salt-hash checksum.
 
     >>> decrypt('crypt 1234 with ABCD', "ABCD") # DEBUG is True in DocTest!
-    u'1234'
+    '1234'
 
-    >>> crypted = encrypt(u"1234", u"ABCD", can_debug=False)
+    >>> crypted = encrypt("1234", "ABCD", can_debug=False)
     >>> crypted
-    u'sha1$DEBUG_123456$91ca222581d9b8f61934d7bf25fb3625141cda91cHBwcA=='
-    >>> decrypt(crypted, u"ABCD", can_debug=False)
-    u'1234'
+    'sha1$DEBUG_123456$91ca222581d9b8f61934d7bf25fb3625141cda91cHBwcA=='
+    >>> decrypt(crypted, "ABCD", can_debug=False)
+    '1234'
 
-    >>> decrypt(u'sha1$DEBUG$b323f546665b1f034742630133d1b489480a24e2cHBwcA==', u"ABCD", can_debug=False)
-    u'1234'
+    >>> decrypt('sha1$DEBUG$b323f546665b1f034742630133d1b489480a24e2cHBwcA==', "ABCD", can_debug=False)
+    '1234'
 
-    >>> crypted = encrypt(u"1234", u"ABCD", use_base64=False, can_debug=False)
-    >>> decrypt(crypted, u"ABCD", use_base64=False, can_debug=False)
-    u'1234'
+    >>> crypted = encrypt("1234", "ABCD", use_base64=False, can_debug=False)
+    >>> decrypt(crypted, "ABCD", use_base64=False, can_debug=False)
+    '1234'
     """
-    crypted = unicode(crypted)
-    key = unicode(key)
+    crypted = force_text(crypted)
+    key = force_text(key)
 
     if can_debug and DEBUG:
         txt, _, key2 = crypted.split(" ", 3)[1:]
         assert key == key2, "key: %s != key2: %s" % (key, key2)
         return txt
 
-    salt_hash = str(crypted[:SALT_HASH_LEN])
+    salt_hash = force_text(crypted[:SALT_HASH_LEN])
     crypted1 = crypted[SALT_HASH_LEN:]
     if use_base64 == True:
         crypted1 = base64.b64decode(crypted1)
-        crypted1 = unicode(crypted1)
+        crypted1 = force_text(crypted1)
 
     try:
         decrypted = crypt(crypted1, key)
     except CryptLengthError:
         # Try with the OLD_SALT_HASH_LEN
-        salt_hash = str(crypted[:OLD_SALT_HASH_LEN])
+        salt_hash = force_text(crypted[:OLD_SALT_HASH_LEN])
         crypted2 = crypted[OLD_SALT_HASH_LEN:]
         if use_base64 == True:
             crypted2 = base64.b64decode(crypted2)
-            crypted2 = unicode(crypted2)
+            crypted2 = force_text(crypted2)
         decrypted = crypt(crypted2, key)
 
     # raised a SaltHashError() if the checksum is wrong:
@@ -353,18 +362,18 @@ def django_to_sha_checksum(django_salt_hash):
         django_salt_hash = user.password
 
     >>> django_to_sha_checksum("sha1$DEBUG$50b412a7ef09f4035f2daca882a1f8bfbe263b62")
-    ('DEBUG', u'crypt 50b412a7ef09f4035f2d with aca882a1f8bfbe263b62')
+    ('DEBUG', 'crypt 50b412a7ef09f4035f2d with aca882a1f8bfbe263b62')
     """
     hash_typ, salt, hash_value = django_salt_hash.split("$")
     assert hash_typ == "sha1", "hash_value typ not supported!"
     assert len(hash_value) == HASH_LEN, "Wrong hash_value length! (Not a SHA1 hash_value?)"
 
     # Split the SHA1-Hash in two pieces
-    sha_a = hash_value[:(HASH_LEN / 2)]
-    sha_b = hash_value[(HASH_LEN / 2):]
+    sha_a = hash_value[:HALF_HASH_LEN]
+    sha_b = hash_value[HALF_HASH_LEN:]
 
-    sha_a = unicode(sha_a)
-    sha_b = unicode(sha_b)
+    sha_a = force_text(sha_a)
+    sha_b = force_text(sha_b)
     sha_checksum = encrypt(txt=sha_a, key=sha_b)
 
     return salt, sha_checksum
@@ -374,7 +383,7 @@ def make_sha_checksum2(raw_password):
     Create a SHA1-JS-Login checksum from a plaintext password.
 
     >>> make_sha_checksum2("test")
-    ('DEBUG_123456', u'crypt 9f5ee85f5c91adb5741d with 8f93483386989d5d49ae')
+    ('DEBUG_123456', 'crypt 9f5ee85f5c91adb5741d with 8f93483386989d5d49ae')
     """
     _, salt, hash_value = get_salt_and_hash(raw_password)
 
@@ -385,14 +394,14 @@ def make_sha_checksum(hash_value):
     Made the needed sha_checksum for the SHA1-JS-Login.
 
     >>> make_sha_checksum("50b412a7ef09f4035f2daca882a1f8bfbe263b62")
-    u'crypt 50b412a7ef09f4035f2d with aca882a1f8bfbe263b62'
+    'crypt 50b412a7ef09f4035f2d with aca882a1f8bfbe263b62'
     """
     # Split the SHA1-Hash in two pieces
-    sha_a = hash_value[:(HASH_LEN / 2)]
-    sha_b = hash_value[(HASH_LEN / 2):]
+    sha_a = hash_value[:HALF_HASH_LEN]
+    sha_b = hash_value[HALF_HASH_LEN:]
 
-    sha_a = unicode(sha_a)
-    sha_b = unicode(sha_b)
+    sha_a = force_text(sha_a)
+    sha_b = force_text(sha_b)
     sha_checksum = encrypt(txt=sha_a, key=sha_b)
     return sha_checksum
 
@@ -412,17 +421,17 @@ def check_js_sha_checksum(challenge, sha_a, sha_b, sha_checksum, loop_count, cno
     'f893fc3ebdfd886836822161b6bc2ccac955e014'
     >>> sha_checksum = make_sha_checksum(hash_value)
     >>> sha_checksum
-    u'crypt f893fc3ebdfd88683682 with 2161b6bc2ccac955e014'
+    'crypt f893fc3ebdfd88683682 with 2161b6bc2ccac955e014'
     >>>
-    >>> sha_a = hash_value[:(HASH_LEN/2)]
+    >>> sha_a = hash_value[:HALF_HASH_LEN]
     >>> sha_a
     'f893fc3ebdfd88683682'
-    >>> sha_b = hash_value[(HASH_LEN/2):]
+    >>> sha_b = hash_value[HALF_HASH_LEN:]
     >>> sha_b
     '2161b6bc2ccac955e014'
     >>> for i in range(loop_count):
     ...    sha_a
-    ...    sha_a = hashlib.sha1("%s%s%s%s" % (sha_a, i, challenge, cnonce)).hexdigest()
+    ...    sha_a = hash_hexdigest("%s%s%s%s" % (sha_a, i, challenge, cnonce))
     'f893fc3ebdfd88683682'
     '7416451ba99917ccd09cfb5168678308933ed82c'
     'ec569defb31299e6134ad8e0c03ff40ab37972da'
@@ -436,9 +445,9 @@ def check_js_sha_checksum(challenge, sha_a, sha_b, sha_checksum, loop_count, cno
     local_sha_a = decrypt(sha_checksum, sha_b)
 
     for i in range(loop_count):
-        local_sha_a = hashlib.sha1(
+        local_sha_a = hash_hexdigest(
             "%s%s%s%s" % (local_sha_a, i, challenge, cnonce)
-        ).hexdigest()
+        )
 
     if local_sha_a == sha_a:
         return True
@@ -453,6 +462,6 @@ if __name__ == "__main__":
     DEBUG = True
 
     import doctest
-    print doctest.testmod(
+    print(doctest.testmod(
         verbose=False
-    )
+    ))
