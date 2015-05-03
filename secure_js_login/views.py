@@ -13,22 +13,18 @@
     :license: GNU GPL v3 or above, see LICENSE for more details
 """
 
+from __future__ import unicode_literals
 import logging
 
 from django.conf import settings
 from django.contrib import auth, messages
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
 from django.template import RequestContext
 from django.template.loader import render_to_string
 from django.utils.translation import ugettext as _
 from django.shortcuts import render_to_response
 from django.core import urlresolvers
 from django.views.decorators.csrf import csrf_protect, csrf_exempt
-
-from pylucid_project.apps.pylucid.decorators import check_request
-from pylucid_project.apps.pylucid.models import LogEntry
-from pylucid_project.apps.pylucid.models.pluginpage import PluginPage
-from pylucid_project.apps.pylucid.shortcuts import bad_request, ajax_response
 
 # auth own stuff
 from secure_js_login.models import CNONCE_CACHE
@@ -111,18 +107,14 @@ def lucidTag(request):
     return render_to_string(template_name, context, context_instance=RequestContext(request))
 
 
-def _wrong_login(request, debug_msg, user=None):
+def _wrong_login(request, user=None):
     """ username or password is wrong. """
-    if settings.DEBUG:
-        error_msg = debug_msg
-    else:
-        error_msg = _("Wrong username/password.")
-
     log.error("Login error, username: %r", user.username)
 
     # create a new challenge and add it to session
     challenge = _get_challenge(request)
 
+    error_msg = _("Wrong username/password.")
     response = "%s;%s" % (challenge, error_msg)
     return HttpResponse(response, content_type="text/plain")
 
@@ -139,19 +131,19 @@ def _sha_auth(request):
     form = ShaLoginForm(request.POST)
     if not form.is_valid():
         log.debug("ShaLoginForm is not valid: %s", repr(form.errors))
-        return bad_request(APP_LABEL, _NORMAL_ERROR_MSG, debug_msg)
+        return HttpResponseBadRequest()
 
     try:
         challenge = request.session.pop("challenge")
     except KeyError as err:
         log.debug("Can't get 'challenge' from session: %s", err)
-        return bad_request(APP_LABEL, _NORMAL_ERROR_MSG, debug_msg)
+        return HttpResponseBadRequest()
 
     try:
         user1, user_profile = form.get_user_and_profile()
     except WrongUserError as err:
         log.debug("Can't get user and user profile: %s", err)
-        return _wrong_login(request, debug_msg)
+        return _wrong_login(request)
 
     sha_checksum = user_profile.sha_login_checksum
     sha_a = form.cleaned_data["sha_a"]
@@ -164,7 +156,7 @@ def _sha_auth(request):
     #  - dict vary if more than one server process runs (one dict in one process)
     if cnonce in CNONCE_CACHE:
         log.error("Client-nonce '%s' used in the past!", cnonce)
-        return bad_request(APP_LABEL, _NORMAL_ERROR_MSG, debug_msg)
+        return HttpResponseBadRequest()
     CNONCE_CACHE[cnonce] = None
 
     if DEBUG:
@@ -185,11 +177,11 @@ def _sha_auth(request):
         )
     except Exception as err: # e.g. low level error from crypt
         log.error("auth.authenticate() failed: %s", err)
-        return _wrong_login(request, debug_msg, user1)
+        return _wrong_login(request, user1)
 
     if user2 is None:
         log.error("auth.authenticate() failed. (must be a wrong password)")
-        return _wrong_login(request, debug_msg, user1)
+        return _wrong_login(request, user1)
     else:
         # everything is ok -> log the user in and display "last login" page message
         last_login = user2.last_login
@@ -245,7 +237,7 @@ def _get_salt(request):
 
 
 @csrf_protect
-def _login_view(request):
+def secure_js_login(request):
     """
     For better JavaScript debugging: Enable settings.DEBUG and request the page
     via GET with: "...?auth=login"
@@ -255,14 +247,14 @@ def _login_view(request):
 
     if request.method != 'GET':
         log.error("request method %r wrong, only GET allowed", request.method)
-        return bad_request(APP_LABEL, "_login_view() error", debug_msg) # Return HttpResponseBadRequest
+        return HttpResponseBadRequest()
 
     next_url = request.GET.get("next_url", request.path)
 
     if "//" in next_url: # FIXME: How to validate this better?
         # Don't redirect to other pages.
         log.error("next url %r seems to be wrong!", next_url)
-        return bad_request(APP_LABEL, "_login_view() error", debug_msg) # Return HttpResponseBadRequest
+        return HttpResponseBadRequest()
 
     form = ShaLoginForm()
 
@@ -303,13 +295,8 @@ def _login_view(request):
     # https://docs.djangoproject.com/en/dev/ref/contrib/csrf/#django.views.decorators.csrf.ensure_csrf_cookie
     request.META["CSRF_COOKIE_USED"] = True
 
-    # return a string for replacing the normal cms page content
-    if not request.is_ajax():
-        response = render_to_response('secure_js_login/sha_form_debug.html', context, context_instance=RequestContext(request))
-    else:
-        response = ajax_response(request, 'secure_js_login/sha_form.html', context, context_instance=RequestContext(request))
+    return render_to_response('secure_js_login/sha_form.html', context, context_instance=RequestContext(request))
 
-    return response
 
 
 def _logout_view(request):

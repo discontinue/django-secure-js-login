@@ -9,11 +9,6 @@ from django.utils.encoding import python_2_unicode_compatible
 from django_tools.models import UpdateTimeBaseModel # New in django-tools v0.24.2
 
 
-# used in auth views for simple check if client-nonce used in the past
-# Exist here in models, because it's accessible in other modules, too.
-# This doesn't work if its defined in views.py
-CNONCE_CACHE = {}
-
 
 class CountManager(models.Manager):
     def __init__(self, attr_name, *args, **kwargs):
