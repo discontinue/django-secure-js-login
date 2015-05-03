@@ -1,5 +1,5 @@
 {% extends "admin/login.html" %}
-
+{% load i18n static %}
 
 {% block extrastyle %}{{ block.super }}
 <style type="text/css">
@@ -7,18 +7,18 @@
 .page_msg_error { color: #ff0000; border: 1px solid #ff0000; }
 .page_msg_info { color: #0000ff; border: 1px solid #000000; }
 </style>
-{% endblock %}
+{% endblock extrastyle %}
 
 {% block extrahead %}
 <script type="text/javascript">
 var challenge="{{ challenge }}"; {# changed via ajax, after wrong login #}
 var next_url="{{ next_url }}";
 </script>
-<script type="text/javascript" src="{% url 'django.views.i18n.javascript_catalog' packages="auth" %}"></script>
-{% compress js %}
+<script type="text/javascript" src="{% static 'admin/js/jquery.min.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
 <script type="text/javascript" src="{% static 'secure_js_login/sha.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
 <script type="text/javascript" src="{% static 'secure_js_login/shared_sha_tools.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
 <script type="text/javascript">
+var debug={{ debug }};
 var OLD_SALT_LEN=parseInt("{{ old_salt_len }}");
 var SALT_LEN=parseInt("{{ salt_len }}");
 var HASH_LEN=parseInt("{{ hash_len }}");
@@ -30,7 +30,7 @@ jQuery(document).ready(function($) {
     init_pylucid_sha_login();
 });
 </script>
-{% endblock %}
+{% endblock extrahead %}
 
 <fieldset>
 <legend>
@@ -68,4 +68,3 @@ jQuery(document).ready(function($) {
   <a href="{{ pass_reset_link }}">{% trans 'Request a password reset.' %}</a>
 {% endif %}
 </fieldset>
-{% endblock %}

@@ -33,9 +33,7 @@ from secure_js_login.forms import WrongUserError, UsernameForm, ShaLoginForm
 from secure_js_login import settings as app_settings
 
 
-
-
-log = logging.getLogger(__name__)
+log = logging.getLogger("secure_js_login")
 
 
 # DEBUG is usefull for debugging. It send always the same challenge "12345"
@@ -54,7 +52,7 @@ def _get_challenge(request):
         print("use DEBUG challenge: %r" % challenge)
     else:
         # Create a new random salt value for the password challenge:
-        challenge = crypt.get_new_seed()
+        challenge = crypt.seed_generator()
 
     # For later comparing with form data
     request.session["challenge"] = challenge
@@ -120,7 +118,6 @@ def _wrong_login(request, user=None):
 
 
 
-@check_request(app_label="pylucid_plugin.auth", action="_sha_auth() error", must_post=True, must_ajax=True)
 @csrf_protect
 def _sha_auth(request):
     """
@@ -191,7 +188,6 @@ def _sha_auth(request):
         return HttpResponse("OK", content_type="text/plain")
 
 
-@check_request(app_label="pylucid_plugin.auth", action="_get_salt() error", must_post=True, must_ajax=True)
 @csrf_protect
 def _get_salt(request):
     """
@@ -265,17 +261,19 @@ def secure_js_login(request):
         # url from django-authopenid, only available if the urls.py are included
         reset_link = urlresolvers.reverse("auth_password_reset")
     except urlresolvers.NoReverseMatch:
-        try:
-            # DjangoBB glue plugin adds the urls from django-authopenid
-            reset_link = PluginPage.objects.reverse("djangobb_plugin", "auth_password_reset")
-        except KeyError:
-            # plugin is not installed
-            reset_link = None
-        except urlresolvers.NoReverseMatch:
-            # plugin is installed, but not in used (no PluginPage created)
-            reset_link = None
+        reset_link = None
+        # try:
+        #     # DjangoBB glue plugin adds the urls from django-authopenid
+        #     reset_link = PluginPage.objects.reverse("djangobb_plugin", "auth_password_reset")
+        # except KeyError:
+        #     # plugin is not installed
+        #     reset_link = None
+        # except urlresolvers.NoReverseMatch:
+        #     # plugin is installed, but not in used (no PluginPage created)
+        #     reset_link = None
 
     context = {
+        "debug": "true" if settings.DEBUG else "false",
         "challenge": challenge,
         "old_salt_len": crypt.OLD_SALT_LEN,
         "salt_len": crypt.SALT_LEN,
@@ -307,22 +305,6 @@ def _logout_view(request):
     return HttpResponseRedirect(next_url)
 
 
-def http_get_view(request):
-    """
-    Login+Logout view via GET parameters
-    """
-    action = request.GET["auth"]
 
-    if action == "login":
-        return _login_view(request)
-    elif action == "get_salt":
-        return _get_salt(request)
-    elif action == "sha_auth":
-        return _sha_auth(request)
-    elif action == "logout":
-        return _logout_view(request)
-    else:
-        debug_msg = "Wrong get view parameter!"
-        return bad_request(APP_LABEL, "http_get_view() error", debug_msg) # Return HttpResponseBadRequest
 
 

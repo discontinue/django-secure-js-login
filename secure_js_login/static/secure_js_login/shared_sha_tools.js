@@ -4,7 +4,7 @@
     
     A secure JavaScript SHA-1 AJAX Login.
     
-    :copyleft: 2007-2013 by the PyLucid team, see AUTHORS for more details.
+    :copyleft: 2007-2015 by the PyLucid team, see AUTHORS for more details.
     :license: GNU GPL v3 or above, see LICENSE for more details
 */
 
@@ -16,6 +16,24 @@ try {
     alert("Error, jQuery JS not loaded!\n Original error was:" + e);
 }
 
+// helper function for console logging
+// set debug to true to enable debug logging
+function log() {
+    if (typeof debug === 'undefined') {
+        // debug variable is undefined -> no debugging.
+        debug=false;
+    }
+    if (debug && window.console && window.console.log) {
+
+        try {
+            window.console.log(Array.prototype.join.call(arguments,''));
+        } catch (e) {
+            log("Error:" + e);
+        }
+
+    }
+}
+log("JS logging initialized");
 
 function _page_msg(msg){
     $("#js_page_msg").html(msg).slideDown().css("display", "block");

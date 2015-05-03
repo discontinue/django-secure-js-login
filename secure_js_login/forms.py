@@ -18,7 +18,7 @@ from django.utils.translation import ugettext as _
 from django.forms.forms import NON_FIELD_ERRORS
 
 from secure_js_login.utils import crypt
-from pylucid_project.apps.pylucid.models import UserProfile
+from secure_js_login.models import UserProfile
 
 
 
@@ -35,7 +35,7 @@ class UsernameForm(forms.Form):
         username = self.cleaned_data["username"]
         try:
             user = User.objects.get(username=username)
-        except User.DoesNotExist, e:
+        except User.DoesNotExist as err:
             raise WrongUserError("User %r doesn't exists!" % username)
 
         if not user.is_active:
@@ -48,7 +48,7 @@ class UsernameForm(forms.Form):
             user = self.get_user()
         try:
             return user.get_profile()
-        except UserProfile.DoesNotExist, err:
+        except UserProfile.DoesNotExist as err:
             raise WrongUserError("Can't get user profile: %r" % err)
 
     def get_user_and_profile(self):

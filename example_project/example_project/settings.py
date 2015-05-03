@@ -45,7 +45,9 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     "secure_js_login.honypot",
+    "secure_js_login",
 )
 
 MIDDLEWARE_CLASSES = (
@@ -94,3 +96,36 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
 
 STATIC_URL = '/static/'
+
+
+
+# django-secure-js-login settings:
+
+# use 'User.set_password' monkey-patch in models.py for create password hashes:
+AUTO_CREATE_PASSWORD_HASH = True
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s %(asctime)s %(module)s %(message)s'
+        },
+        'simple': {
+            'format': '%(levelname)s %(message)s'
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            # 'formatter': 'simple'
+            'formatter': 'verbose'
+        },
+    },
+    'loggers': {
+        "secure_js_login": {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    },
+}

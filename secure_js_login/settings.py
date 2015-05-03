@@ -20,4 +20,5 @@ LOOP_COUNT = getattr(settings, "LOOP_COUNT", 15)
 # Use https (secure http) for login forms?
 HTTPS_URLS = getattr(settings, "HTTPS_URLS", False)
 
-
+# use 'User.set_password' monkey-patch in models.py for create password hashes
+AUTO_CREATE_PASSWORD_HASH = getattr(settings, "AUTO_CREATE_PASSWORD_HASH", False)

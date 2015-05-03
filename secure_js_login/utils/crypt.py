@@ -452,6 +452,7 @@ def make_sha_checksum2(raw_password):
 
     return salt, make_sha_checksum(hash_value)
 
+
 def make_sha_checksum(hash_value):
     """
     Made the needed sha_checksum for the SHA1-JS-Login.
