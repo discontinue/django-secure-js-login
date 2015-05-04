@@ -81,7 +81,7 @@ def _wrong_old_password(request, debug_msg, user=None):
         LogEntry.objects.request_limit(
             request, min_pause, ban_limit, app_label="pylucid_plugin.auth", action="old password error", no_page_msg=True
         )
-    except LogEntry.RequestTooFast, err:
+    except LogEntry.RequestTooFast as err:
         # min_pause is not observed
         error_msg = unicode(err) # ugettext_lazy
 
@@ -145,7 +145,7 @@ def JS_password_change(request):
                     sha_checksum=sha_checksum,
                     loop_count=loop_count, cnonce=cnonce
                 )
-            except Exception, err: # e.g. low level error from crypt
+            except Exception as err: # e.g. low level error from crypt
                 debug_msg = "JS_password_change: auth.authenticate() failed: %s" % err
                 return _wrong_old_password(request, debug_msg, user)
 
@@ -184,8 +184,6 @@ def JS_password_change(request):
             "salt_len": crypt.SALT_LEN,
             "hash_len": crypt.HASH_LEN,
             "loop_count": loop_count,
-            "get_salt_url": request.path + "?auth=get_salt",
-            "sha_auth_url": request.path + "?auth=sha_auth",
         })
     return context
 

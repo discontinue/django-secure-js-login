@@ -132,7 +132,7 @@ class LoginTest(basetest.BaseUnittest):
         settings.DEBUG = True
 
         response = self.client.post(
-            "/en/welcome/?auth=sha_auth",
+            "/en/welcome/?auth=secure_auth",
             {
                 "username": "a",
                 "sha_a": "not a SHA1 value 1",
@@ -158,7 +158,7 @@ class LoginTest(basetest.BaseUnittest):
         # send a login, before a challenge put into session,
         # because the login form was not requested in the past
         response = self.client.post(
-            "/en/welcome/?auth=sha_auth",
+            "/en/welcome/?auth=secure_auth",
             {
                 "username": username,
                 "sha_a": "0123456789abcdef0123456789abcdef01234567",
@@ -190,7 +190,7 @@ class LoginTest(basetest.BaseUnittest):
             self.assertStatusCode(response, 200)
 
             response = self.client.post(
-                "/en/welcome/?auth=sha_auth",
+                "/en/welcome/?auth=secure_auth",
                 {
                     "username": username,
                     "sha_a": "0123456789abcdef0123456789abcdef01234567",
@@ -247,7 +247,7 @@ class LoginTest(basetest.BaseUnittest):
             cnonce = cnonce[:40]
 
             response2 = client.post(
-                "/en/welcome/?auth=sha_auth",
+                "/en/welcome/?auth=secure_auth",
                 {
                     "username": username,
                     "sha_a": "0123456789abcdef0123456789abcdef01234567",
@@ -467,7 +467,7 @@ class LoginTest(basetest.BaseUnittest):
             ).hexdigest()
 
         # Login with calculated sha pass
-        response = csrf_client.post("/en/welcome/?auth=sha_auth",
+        response = csrf_client.post("/en/welcome/?auth=secure_auth",
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
             HTTP_X_CSRFTOKEN=csrf_token,
             data={

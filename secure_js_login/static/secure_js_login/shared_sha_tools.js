@@ -35,6 +35,42 @@ function log() {
 }
 log("JS logging initialized");
 
+
+function replace_complete_page(html) {
+    // replace the complete page
+    if (html.indexOf("</body>") == -1) {
+        document.open("text/plain");
+    } else {
+        document.open("text/html");
+    }
+    document.write(html);
+    document.close();
+}
+
+function ajax_error_handler(XMLHttpRequest, textStatus, errorThrown) {
+    /*************************************************************************
+	ajax error "handler".
+	replace the complete page with the error text (django html traceback page)
+	*************************************************************************/
+    log("ajax get response error!");
+    log("textStatus:" + textStatus);
+    log("errorThrown:" + errorThrown);
+    log(XMLHttpRequest);
+    var response_text = XMLHttpRequest.responseText;
+    //log("response_text: '" + response_text + "'");
+    if (!response_text) {
+        response_text = "Ajax response error without any response text.\n";
+		response_text += "textStatus:" + textStatus + "\n";
+		response_text += "errorThrown:" + errorThrown + "\n";
+		replace_complete_page(response_text)
+		return false;
+    }
+    replace_complete_page(response_text);
+    load_normal_link = true;
+    return false;
+}
+
+
 function _page_msg(msg){
     $("#js_page_msg").html(msg).slideDown().css("display", "block");
 }
@@ -81,6 +117,7 @@ function assert_only_ascii(data) {
     }
 }
 
+//-----------------------------------------------------------------------------
 
 function assert_csrf_cookie() {
     // Check if Cross Site Request Forgery protection cookie exists
@@ -91,11 +128,45 @@ function assert_csrf_cookie() {
             log("Error:" + e);
         }
         throw "Error: Cookies not set. Please enable cookies in your browser!";
-    } else {
-        log("cookie check, ok.");
     }
 }
+function getCookie(name) {
+    var cookieValue = null;
+    if (document.cookie && document.cookie != '') {
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = jQuery.trim(cookies[i]);
+            // Does this cookie string begin with the name we want?
+            if (cookie.substring(0, name.length + 1) == (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+function csrfSafeMethod(method) {
+    // these HTTP methods do not require CSRF protection
+    return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+}
 
+
+function init_ajax_csrf() {
+    assert_csrf_cookie()
+
+    var csrftoken = getCookie(CSRF_COOKIE_NAME);
+
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
+        }
+    });
+    log("Ajax CSRF cookie handling initilized with: " + csrftoken);
+}
+
+//-----------------------------------------------------------------------------
 
 function assert_challenge() {
     // Check variable that set in sha_form.html via template variables
@@ -183,7 +254,7 @@ function calculate_hashes(password, salt, challenge) {
     sha_b = shapass.substr(HASH_LEN/2, HASH_LEN/2);
     log("substr: sha_a:|"+sha_a+"| sha_b:|"+sha_b+"|");   
 
-    var cnonce = generate_nonce("PyLucid JS-SHA-Login");
+    var cnonce = generate_nonce("django secure JS login");
 
     log("Build "+LOOP_COUNT+"x SHA1 from: sha_a + i + challenge + cnonce");
     for (i=0; i<LOOP_COUNT; i++)
@@ -191,12 +262,10 @@ function calculate_hashes(password, salt, challenge) {
         //log("sha1 round: " + i);
         sha_a = sha_hexdigest(sha_a + i + challenge + cnonce);
     }
-    
-    return {
-        "sha_a": sha_a,
-        "sha_b": sha_b,
-        "cnonce": cnonce,
-    }
+
+    result = sha_a + "$" + sha_b +"$" + cnonce;
+    log("Result: " + result)
+    return result
 }
 
 function calculate_salted_sha1(password) {
@@ -258,7 +327,7 @@ function test_sha_js() {
 
 
 function precheck_sha_login() {
-    assert_csrf_cookie() // Check if Cross Site Request Forgery protection cookie exists
+    init_ajax_csrf() // Cross Site Request Forgery protection
     assert_challenge() // Check variable that set in sha_form.html by template variables
         
     assert_is_number(OLD_SALT_LEN, "OLD_SALT_LEN");
@@ -275,12 +344,12 @@ function precheck_sha_login() {
 //-----------------------------------------------------------------------------
 
 
-function init_pylucid_sha_login() {
+function init_secure_login() {
     /*
         SHA-JS-Login
         init from auth/sha_form.html
     */
-    log("shared_sha_login.js - init_pylucid_sha_login()");
+    log("shared_sha_login.js - init_secure_login()");
     
     try {
         precheck_sha_login()
@@ -289,51 +358,42 @@ function init_pylucid_sha_login() {
         return false;
     }
 
-    log("unhide form");
-    $("#login_form").css("display", "block").slideDown();
+    // XXX: remove:
+    $(ID_USERNAME).val("test");
+    $(ID_PASSWORD).val("12345678");
 
-    $("#id_username").focus();
-
-    // remove old page_msg, if exist
-    $("#page_msg").slideUp();
-
-    $("#id_username").change(function() {
+    $(ID_USERNAME).change(function() {
         // if the username change, we must get a new salt from server.
-        $("#id_password").focus();
-        $("#js_page_msg").slideUp();
+        $(ID_PASSWORD).focus();
         log("username changed, delete old salt.");
         salt="";
         return false;
     });
 
-    $("input").change(function() {
-        // hide old JS messages, if a input field changed
-        $("#js_page_msg").slideUp(50);
-    });
-
-    $("#login_form").submit(function() {
-        $("#js_page_msg").slideUp(50); // hide old JS messages
+    $(ID_FORM).submit(function() {
         log("check login form.");
         try {
-            var username = $("#id_username").val();
+            var username = $(ID_USERNAME).val();
             log("username:" + username);
 
             if (username.length<2) {
                 log("username to short, current len:" + username.length);
                 page_msg_error(gettext("Username is too short."));
-                $("#id_username").focus();
+                $(ID_USERNAME).focus();
                 return false;
             }
 
-            var password = $("#id_password").val();
+            var password = $(ID_PASSWORD).val();
             log("password:" + password);
 
             try {
                 assert_min_length(password, 8, "password");
             } catch (e) {
                 log(e);
-                page_msg_error(gettext("Password is too short. It must be at least eight characters long."));
-                $("#id_password").focus();
+                var msg=gettext("Password is too short. It must be at least eight characters long.");
+                alert(msg);
+//                page_msg_error(msg);
+                $(ID_PASSWORD).focus();
                 return false;
             }
             
@@ -341,17 +401,20 @@ function init_pylucid_sha_login() {
                 assert_only_ascii(password)
             } catch (e) {
                 log(e);
-                page_msg_error(gettext("Only ASCII letters in password allowed!"));
-                $("#id_password").focus();
+                var msg=gettext("Only ASCII letters in password allowed!");
+                alert(msg);
+//                page_msg_error(msg);
+                $(ID_PASSWORD).focus();
                 return false;
             }
 
             if (salt=="") {
-                page_msg_info(gettext("Get the hash salt value from server..."));
+                $(ID_PASSWORD).val(gettext("Get the hash salt value from server..."));
+
                 var post_data = {
                     "username": username
                 };
-                log("get user salt from server, send POST:" + $.param(post_data));
+                log("get user salt from " + get_salt_url + " - send POST:" + $.param(post_data));
                 response = $.ajax({
                     async: false,
                     type: "POST",
@@ -361,7 +424,7 @@ function init_pylucid_sha_login() {
                     success: function(data, textStatus, XMLHttpRequest){
                         log("get salt value via ajax: " + textStatus);
                     },
-                    error: ajax_error_handler // from pylucid_js_tools.js
+                    error: ajax_error_handler
                 });
                 salt = response.responseText;
                 log("salt value from server:" + salt);
@@ -376,52 +439,38 @@ function init_pylucid_sha_login() {
                 return false;
             }
 
+            $(ID_PASSWORD).val(gettext("Calculate the hashes..."));
             try {
-                var results=calculate_hashes(password, salt, challenge);
+                var result=calculate_hashes(password, salt, challenge);
             } catch (e) {
                 alert(e);
                 return false;
             }
-            var sha_a=results.sha_a;
-            var sha_b=results.sha_b;
-            var cnonce=results.cnonce;
-            log("sha_a:"+sha_a);
-            log("sha_b:"+sha_b);
-            log("cnonce:"+cnonce);
-            
-
-            // display SHA values
-            $("#password_block").slideUp(1).delay(500);
-            $("#sha_values_block").css("display", "block").slideDown();
-            $("#id_password").val(""); // 'delete' plaintext password
-            $("#id_sha_a").val(sha_a);
-            $("#id_sha_b").val(sha_b);
-            $("#id_cnonce").val(cnonce);
+            $(ID_PASSWORD).val(result);
 
             var post_data = {
                 "username": username,
-                "sha_a": sha_a, "sha_b": sha_b,
-                "cnonce": cnonce
+                "password": result
             }
             log("auth user, send POST:" + $.param(post_data));
             page_msg_info(gettext("Send SHA-1 values to the server..."));
             response = $.ajax({
                 async: false,
                 type: "POST",
-                url: sha_auth_url,
+                url: secure_auth_url,
                 data: post_data,
                 dataType: "text",
                 success: function(data, textStatus, XMLHttpRequest){
                     log("post request via ajax: " + textStatus);
                 },
-                error: ajax_error_handler // from pylucid_js_tools.js
+                error: ajax_error_handler
             });
             msg = response.responseText;
             log("responseText:" + msg);
             if (msg=="OK") {
                  // login was ok
                  page_msg_success(gettext("Login ok, loading..."));
-                 $("#id_password").remove();
+                 $(ID_PASSWORD).remove();
                  window.location.href = next_url;
                  return false;
             }
@@ -448,14 +497,13 @@ function init_pylucid_sha_login() {
             $("#id_sha_a").val("");
             $("#id_sha_b").val("");
             $("#id_cnonce").val("");
-            $("#id_password").focus();
+            $(ID_PASSWORD).focus();
         } catch (e) {
             log("Error:" + e);
             alert("internal javascript error:" + e);
         }
         return false;
     });
-    $("#load_info").slideUp();
 }
 
 
@@ -470,13 +518,13 @@ function change_password_submit() {
     
     var old_password = $("#id_old_password").val();
     log("old_password:" + old_password);
-    
+
     var new_password1 = $("#id_new_password1").val();
     log("new_password1:" + new_password1);
-    
+
     var new_password2 = $("#id_new_password2").val();
     log("new_password2:" + new_password2);
-    
+
     try {
         assert_min_length(old_password, 8, "old password");
     } catch (e) {
@@ -526,11 +574,11 @@ function change_password_submit() {
             return false
         }
     }
-    
+
     // display SHA values
     $("#password_block").slideUp(1).delay(500);
     $("#sha_values_block").css("display", "block").slideDown();
-    
+
     try {
         var results=calculate_hashes(old_password, sha_login_salt, challenge);
     } catch (e) {

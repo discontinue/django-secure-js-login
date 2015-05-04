@@ -10,16 +10,19 @@
     :license: GNU GPL v3 or above, see LICENSE for more details
 """
 
+import logging
 
 from django import forms
 from django.contrib import auth
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext as _
 from django.forms.forms import NON_FIELD_ERRORS
 
 from secure_js_login.utils import crypt
 from secure_js_login.models import UserProfile
 
+
+log = logging.getLogger("secure_js_login")
 
 
 class WrongUserError(Exception):
@@ -34,22 +37,26 @@ class UsernameForm(forms.Form):
     def get_user(self):
         username = self.cleaned_data["username"]
         try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist as err:
+            user = get_user_model().objects.get(username=username)
+        except get_user_model().DoesNotExist as err:
             raise WrongUserError("User %r doesn't exists!" % username)
 
         if not user.is_active:
             raise WrongUserError("User %r is not active!" % user)
 
+        log.debug("User %r: %r", username, user)
         return user
 
     def get_user_profile(self, user=None):
         if user is None:
             user = self.get_user()
+            
         try:
-            return user.get_profile()
+            userprofile = UserProfile.objects.get(user=user)
         except UserProfile.DoesNotExist as err:
             raise WrongUserError("Can't get user profile: %r" % err)
+        log.debug("User profile: %r for user %r" % (userprofile, user))
+        return userprofile
 
     def get_user_and_profile(self):
         user = self.get_user()
@@ -103,6 +110,34 @@ class ShaLoginForm(Sha1BaseForm, UsernameForm):
         username
     """
     pass
+
+HASH_LEN = (crypt.HASH_LEN * 2) + crypt.HALF_HASH_LEN + 2 # sha_a + "$" + sha_b +"$" + cnonce
+
+class SecureLoginForm(UsernameForm):
+    password=forms.CharField(
+        min_length=HASH_LEN,
+        max_length=HASH_LEN
+    )
+
+    def _validate_sha1(self, sha_value, key):
+        if crypt.validate_sha_value(sha_value) != True:
+            raise forms.ValidationError(u"%s is not valid SHA value." % key)
+        return sha_value
+
+    def clean_password(self):
+        raw_password = self.cleaned_data["password"]
+        if raw_password.count("$") != 3:
+            forms.ValidationError(_("No three $ found!"))
+
+        sha_a, sha_b, cnonce = raw_password.split("$")
+        self._validate_sha1(sha_a, "sha_a")
+
+        # Fill with null, to match the full SHA1 hexdigest length:
+        self._validate_sha1(sha_b.ljust(crypt.HASH_LEN, "0"), "sha_b")
+
+        self._validate_sha1(cnonce, "cnonce")
+
+        return (sha_a, sha_b, cnonce)
 
 
 class JSPasswordChangeForm(Sha1BaseForm):

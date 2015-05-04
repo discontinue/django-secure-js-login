@@ -24,12 +24,12 @@ from django.template.loader import render_to_string
 from django.utils.translation import ugettext as _
 from django.shortcuts import render_to_response
 from django.core import urlresolvers
-from django.views.decorators.csrf import csrf_protect, csrf_exempt
+from django.views.decorators.csrf import csrf_protect, csrf_exempt, ensure_csrf_cookie
 
 # auth own stuff
 from secure_js_login.models import CNONCE_CACHE
 from secure_js_login.utils import crypt
-from secure_js_login.forms import WrongUserError, UsernameForm, ShaLoginForm
+from secure_js_login.forms import WrongUserError, UsernameForm, SecureLoginForm
 from secure_js_login import settings as app_settings
 
 
@@ -49,13 +49,14 @@ def _get_challenge(request):
     """ create a new challenge, add it to session and return it"""
     if DEBUG:
         challenge = "12345"
-        print("use DEBUG challenge: %r" % challenge)
+        log.critical("use DEBUG challenge: %r", challenge)
     else:
         # Create a new random salt value for the password challenge:
         challenge = crypt.seed_generator()
 
     # For later comparing with form data
     request.session["challenge"] = challenge
+    log.debug("Save new challenge %r to session.", challenge)
 
     return challenge
 
@@ -119,22 +120,31 @@ def _wrong_login(request, user=None):
 
 
 @csrf_protect
-def _sha_auth(request):
+def secure_auth(request):
     """
     login the user with username and sha values.
     """
-    _NORMAL_ERROR_MSG = "_sha_auth() error"
+    log.debug("secure_auth() requested with: %s", repr(request.POST))
 
-    form = ShaLoginForm(request.POST)
+    _NORMAL_ERROR_MSG = "_secure_auth() error"
+
+    form = SecureLoginForm(request.POST)
     if not form.is_valid():
         log.debug("ShaLoginForm is not valid: %s", repr(form.errors))
         return HttpResponseBadRequest()
+    else:
+        sha_a, sha_b, cnonce = form.cleaned_data["password"]
+        log.debug("SHA-A: %r", sha_a)
+        log.debug("SHA-B: %r", sha_b)
+        log.debug("CNONCE: %r", cnonce)
 
     try:
         challenge = request.session.pop("challenge")
     except KeyError as err:
         log.debug("Can't get 'challenge' from session: %s", err)
         return HttpResponseBadRequest()
+    else:
+        log.debug("Challenge from session: %r", challenge)
 
     try:
         user1, user_profile = form.get_user_and_profile()
@@ -143,9 +153,6 @@ def _sha_auth(request):
         return _wrong_login(request)
 
     sha_checksum = user_profile.sha_login_checksum
-    sha_a = form.cleaned_data["sha_a"]
-    sha_b = form.cleaned_data["sha_b"]
-    cnonce = form.cleaned_data["cnonce"]
 
     # Simple check if 'nonce' from client used in the past.
     # Limitations:
@@ -156,12 +163,10 @@ def _sha_auth(request):
         return HttpResponseBadRequest()
     CNONCE_CACHE[cnonce] = None
 
-    if DEBUG:
-        print(
-            "authenticate %r with: challenge: %r, sha_checksum: %r, sha_a: %r, sha_b: %r, cnonce: %r" % (
-                user1, challenge, sha_checksum, sha_a, sha_b, cnonce
-            )
+    log.debug("authenticate %r with: challenge: %r, sha_checksum: %r, sha_a: %r, sha_b: %r, cnonce: %r" % (
+        user1, challenge, sha_checksum, sha_a, sha_b, cnonce
         )
+    )
 
     try:
         # authenticate with:
@@ -189,11 +194,13 @@ def _sha_auth(request):
 
 
 @csrf_protect
-def _get_salt(request):
+def get_salt(request):
     """
     return the user password salt.
     If the user doesn't exist or is not active, return a pseudo salt.
     """
+    log.debug("get_salt() requested.")
+
     user_profile = None
     form = UsernameForm(request.POST)
     if form.is_valid():
@@ -201,38 +208,34 @@ def _get_salt(request):
             user_profile = form.get_user_profile()
         except WrongUserError as err:
             msg = "can't get userprofile: %s" % err
-            if DEBUG:
-                print(msg)
+            log.error(msg)
             if settings.DEBUG:
                 messages.error(request, msg)
 
     if user_profile is None: # Wrong user?
         username = request.POST["username"]
         msg = "Username %r is wrong: %r" % (username, form.errors)
-        if DEBUG:
-            print(msg)
+        log.error(msg)
         if settings.DEBUG:
             messages.error(request, msg)
         salt = crypt.get_pseudo_salt(username)
     else:
         salt = user_profile.sha_login_salt
-        if len(salt) not in (crypt.SALT_LEN, crypt.OLD_SALT_LEN):
-            # Old profile, e.g. after PyLucid v0.8 update?
-            username = request.POST["username"]
-            msg = "Salt for user %r has wrong length: %r" % (username, salt)
-            if DEBUG:
-                print(msg)
+        if len(salt)!=crypt.SALT_LEN:
+            msg = "Salt for user %r has wrong length: %r" % (request.POST["username"], salt)
             if settings.DEBUG:
-                messages.error(request, msg)
+                raise AssertionError(msg)
+
+            log.error(msg)
             salt = crypt.get_pseudo_salt(username)
 
-    if DEBUG:
-        print("send salt %r to client." % salt)
+    log.debug("send salt %r to client.", salt)
 
     return HttpResponse(salt, content_type="text/plain")
 
 
 @csrf_protect
+@ensure_csrf_cookie
 def secure_js_login(request):
     """
     For better JavaScript debugging: Enable settings.DEBUG and request the page
@@ -252,7 +255,7 @@ def secure_js_login(request):
         log.error("next url %r seems to be wrong!", next_url)
         return HttpResponseBadRequest()
 
-    form = ShaLoginForm()
+    form = SecureLoginForm()
 
     # create a new challenge and add it to session
     challenge = _get_challenge(request)
@@ -279,20 +282,11 @@ def secure_js_login(request):
         "salt_len": crypt.SALT_LEN,
         "hash_len": crypt.HASH_LEN,
         "loop_count": app_settings.LOOP_COUNT,
-        "get_salt_url": request.path + "?auth=get_salt",
-        "sha_auth_url": request.path + "?auth=sha_auth",
-        "next_url": next_url,
+        "next": next_url,
         "form": form,
         "pass_reset_link": reset_link,
+        "csrf_cookie_name": settings.CSRF_COOKIE_NAME,
     }
-
-    # IMPORTANT: We must do the following, so that the
-    # CsrfViewMiddleware.process_response() would set the CSRF_COOKIE
-    # see also # https://github.com/jedie/PyLucid/issues/61
-    # XXX in Django => 1.4 we can use @ensure_csrf_cookie
-    # https://docs.djangoproject.com/en/dev/ref/contrib/csrf/#django.views.decorators.csrf.ensure_csrf_cookie
-    request.META["CSRF_COOKIE_USED"] = True
-
     return render_to_response('secure_js_login/sha_form.html', context, context_instance=RequestContext(request))
 
 

@@ -13,10 +13,11 @@ from __future__ import unicode_literals
 import logging
 
 from django.conf import settings
-
+from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import signals
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+from django.utils.encoding import python_2_unicode_compatible
 
 # http://code.google.com/p/django-tools/
 from django_tools.models import UpdateInfoBaseModel
@@ -33,7 +34,7 @@ log = logging.getLogger("secure_js_login")
 # This doesn't work if its defined in views.py
 CNONCE_CACHE = {}
 
-
+@python_2_unicode_compatible
 class UserProfile(UpdateInfoBaseModel):
     """
     Stores additional information about PyLucid users
@@ -67,9 +68,8 @@ class UserProfile(UpdateInfoBaseModel):
         self.sha_login_checksum = sha_checksum
         log.info("SHA Login salt+checksum set for user '%s'.", self.user)
 
-    def __unicode__(self):
-        sites = self.sites.values_list('name', flat=True)
-        return u"UserProfile for user '%s' (on sites: %r)" % (self.user.username, sites)
+    def __str__(self):
+        return "user %r" % self.user.username
 
     class Meta:
         ordering = ("user",)
@@ -104,13 +104,17 @@ if app_settings.AUTO_CREATE_PASSWORD_HASH:
     We make a Monkey-Patch and change the method set_password() from
     the model class django.contrib.auth.models.User.
     We need the raw plaintext password, this is IMHO not available via signals.
+
+    FIXME:
+        * How to not use a Monkey-Patch?!?
+        * How to use get_user_model() here?!?
     """
     # Save the original method
     orig_set_password = User.set_password
 
 
     def set_password(user, raw_password):
-        log.debug("set password %r fro user %r", user, raw_password)
+        log.debug("set password %r for user %r", raw_password, user.username)
 
         if user.id == None:
             # It is a new user. We must save the django user accound first to get a

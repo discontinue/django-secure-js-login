@@ -109,7 +109,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '%(levelname)s %(asctime)s %(module)s %(message)s'
+            'format': '%(levelname)s %(msecs)d %(module)s.%(funcName)s line %(lineno)d: %(message)s'
         },
         'simple': {
             'format': '%(levelname)s %(message)s'
