@@ -11,12 +11,12 @@
         
     SiteSHALoginAuthBackend:
         for JS-SHA1-Login
-        
-    TODO: move SiteAuthBackend to django-tools
 
-    :copyleft: 2009-2013 by the PyLucid team, see AUTHORS for more details.
+    :copyleft: 2009-2015 by the PyLucid team, see AUTHORS for more details.
     :license: GNU GPL v3 or above, see LICENSE for more details.
 """
+
+import logging
 
 from django.conf import settings
 from django.contrib import messages
@@ -25,122 +25,43 @@ from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.utils.translation import ugettext as _
 
-from django_tools.utils.messages import failsafe_message
-
 from secure_js_login.utils import crypt
-from pylucid_project.apps.pylucid.models import LogEntry
+
+
+log = logging.getLogger("secure_js_login")
 
 
 #LOCAL_DEBUG = True
 LOCAL_DEBUG = False
 
 if LOCAL_DEBUG:
-    failsafe_message("Debug mode in auth_backends is on!", UserWarning)
-
-
-def can_access_site(user):
-    """
-    Check if the user can access the current site.
-    Use the UserProfile <-> site relationship.
-    Skip check for all superusers.
-    """
-    if user.is_superuser:
-        if LOCAL_DEBUG:
-            failsafe_message("Superuser can access all sites.")
-        return True
-    else:
-        if LOCAL_DEBUG:
-            failsafe_message("No superuser -> check UserProfile.")
-
-    try:
-        user_profile = user.get_profile()
-    except Exception, err:
-        msg = _("Error getting user profile: %s") % err
-        LogEntry.objects.log_action(app_label="pylucid", action="auth_backends", message=msg)
-        failsafe_message(msg)
-        return
-
-    current_site = Site.objects.get_current()
-    sites = user_profile.sites.all()
-    if current_site in sites:
-        if LOCAL_DEBUG:
-            failsafe_message("User can access these site.")
-        return True
-    else:
-        msg = _("You can't access these site!")
-        LogEntry.objects.log_action(
-            app_label="pylucid", action="auth_backends", message=msg,
-            data={
-                "user_username": user.username,
-                "site:": current_site.name,
-            }
-        )
-        failsafe_message(msg)
-        return
-
-
-class SiteAuthBackend(ModelBackend):
-    """
-    Normal username/plaintext password authentication, but we limit user to sites.
-    """
-    def authenticate(self, username=None, password=None):
-        try:
-            user = User.objects.get(username=username)
-            if not user.check_password(password):
-                if settings.DEBUG or LOCAL_DEBUG:
-                    failsafe_message("Wrong password!")
-                return
-        except User.DoesNotExist, err:
-            msg = _("User %(username)s doesn't exist: %(err)s") % {"username": username, "err":err}
-            LogEntry.objects.log_action(
-                app_label="pylucid", action="auth_backends", message=msg,
-            )
-            if LOCAL_DEBUG:
-                raise
-            if settings.DEBUG:
-                failsafe_message()
-            return
-
-        if LOCAL_DEBUG:
-            failsafe_message("Username %s and password ok." % username)
-
-        # Limit the access to UserProfile <-> site relationship
-        if can_access_site(user) == True:
-            return user
+    log.critical("Debug mode in auth_backends is on!")
 
 
 
-class SiteSHALoginAuthBackend(ModelBackend):
+class SecureLoginAuthBackend(ModelBackend):
     """
     Used for PyLucid JS-SHA-Login.
     Check challenge and limit access to sites.
     """
     def authenticate(self, user=None, challenge=None, sha_a=None, sha_b=None, sha_checksum=None, loop_count=None, cnonce=None):
+        log.debug("authenticate with SecureLoginAuthBackend")
+
         if user == None: # Nothing to do: Normal auth?
             return
 
         try:
             check = crypt.check_js_sha_checksum(challenge, sha_a, sha_b, sha_checksum, loop_count, cnonce)
-        except crypt.SaltHashError, err:
+        except crypt.SaltHashError as err:
             # Wrong password
-            LogEntry.objects.log_action(
-                app_label="pylucid", action="auth_backends",
-                message="User %r check_js_sha_checksum error: %s" % (user, err),
-            )
+            log.error("User %r check_js_sha_checksum error: %s" % (user, err))
             if LOCAL_DEBUG:
                 raise
-            if settings.DEBUG:
-                failsafe_message(err, level=messages.ERROR)
-            return None
+            return
 
         if check != True:
             # Wrong password
-            LogEntry.objects.log_action(
-                app_label="pylucid", action="auth_backends",
-                message="User %r check_js_sha_checksum failed." % user,
-            )
+            log.error("User %r check_js_sha_checksum failed." % user)
             return
 
-        # Limit the access to UserProfile <-> site relationship
-        if can_access_site(user) == True:
-            return user
+        return user

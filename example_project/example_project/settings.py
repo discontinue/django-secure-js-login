@@ -104,6 +104,15 @@ STATIC_URL = '/static/'
 # use 'User.set_password' monkey-patch in models.py for create password hashes:
 AUTO_CREATE_PASSWORD_HASH = True
 
+
+AUTHENTICATION_BACKENDS=(
+    # 'django.contrib.auth.backends.ModelBackend',
+    'secure_js_login.auth_backends.SecureLoginAuthBackend',
+)
+
+
+
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

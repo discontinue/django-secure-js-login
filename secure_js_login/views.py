@@ -185,6 +185,7 @@ def secure_auth(request):
         log.error("auth.authenticate() failed. (must be a wrong password)")
         return _wrong_login(request, user1)
     else:
+        log.debug("Authentication ok, log in the user")
         # everything is ok -> log the user in and display "last login" page message
         last_login = user2.last_login
         auth.login(request, user2)
