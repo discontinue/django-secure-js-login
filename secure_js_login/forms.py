@@ -13,13 +13,16 @@
 import logging
 
 from django import forms
+from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import AuthenticationForm
 from django.utils.translation import ugettext as _
 from django.forms.forms import NON_FIELD_ERRORS
+from django.contrib.auth import authenticate
 
 from secure_js_login.utils import crypt
-from secure_js_login.models import UserProfile
+from secure_js_login.models import UserProfile, CNONCE_CACHE
 
 
 log = logging.getLogger("secure_js_login")
@@ -47,16 +50,6 @@ class UsernameForm(forms.Form):
         log.debug("User %r: %r", username, user)
         return user
 
-    def get_user_profile(self, user=None):
-        if user is None:
-            user = self.get_user()
-            
-        try:
-            userprofile = UserProfile.objects.get(user=user)
-        except UserProfile.DoesNotExist as err:
-            raise WrongUserError("Can't get user profile: %r" % err)
-        log.debug("User profile: %r for user %r" % (userprofile, user))
-        return userprofile
 
     def get_user_and_profile(self):
         user = self.get_user()
@@ -111,9 +104,10 @@ class ShaLoginForm(Sha1BaseForm, UsernameForm):
     """
     pass
 
+
 HASH_LEN = (crypt.HASH_LEN * 2) + crypt.HALF_HASH_LEN + 2 # sha_a + "$" + sha_b +"$" + cnonce
 
-class SecureLoginForm(UsernameForm):
+class SecureLoginForm(AuthenticationForm):
     password=forms.CharField(
         min_length=HASH_LEN,
         max_length=HASH_LEN
@@ -121,15 +115,75 @@ class SecureLoginForm(UsernameForm):
 
     def _validate_sha1(self, sha_value, key):
         if crypt.validate_sha_value(sha_value) != True:
-            raise forms.ValidationError(u"%s is not valid SHA value." % key)
+            self._raise_validate_error("%s is not valid SHA value." % key)
         return sha_value
 
-    def clean_password(self):
-        raw_password = self.cleaned_data["password"]
-        if raw_password.count("$") != 3:
-            forms.ValidationError(_("No three $ found!"))
+    def _raise_validate_error(self, msg):
+        log.debug(msg)
+        if not settings.DEBUG:
+            msg = self.error_messages['invalid_login']
 
-        sha_a, sha_b, cnonce = raw_password.split("$")
+        raise forms.ValidationError(msg)
+
+    def clean(self):
+        log.debug("Form cleaned data: %r", self.cleaned_data)
+
+        username = self.cleaned_data.get('username')
+        if not username:
+            return
+
+        try:
+            sha_a, sha_b, cnonce = self.cleaned_data.get('password')
+        except TypeError as err:
+            self._raise_validate_error("Wrong password data: %s" % err)
+
+        self.cleaned_data["password"] = ""
+
+        # Simple check if 'nonce' from client used in the past.
+        # Limitations:
+        #  - Works only when run in a long-term server process, so not in CGI ;)
+        #  - dict vary if more than one server process runs (one dict in one process)
+        if cnonce in CNONCE_CACHE:
+            self._raise_validate_error("Client-nonce %r used in the past!" % cnonce)
+
+        CNONCE_CACHE[cnonce] = None
+
+        try:
+            challenge = self.request.session.pop("challenge")
+        except KeyError as err:
+            self._raise_validate_error("Can't get 'challenge' from session: %s" % err)
+        else:
+            log.debug("Challenge from session: %r", challenge)
+
+        kwargs = {
+            "username":username,
+            "challenge":challenge,
+            "sha_a":sha_a,
+            "sha_b":sha_b,
+            "cnonce":cnonce,
+        }
+        log.info("Call authenticate with: %s", repr(kwargs))
+        self.user_cache = authenticate(**kwargs)
+        if self.user_cache is None:
+            raise forms.ValidationError(
+                self.error_messages['invalid_login'],
+                code='invalid_login',
+                params={'username': self.username_field.verbose_name},
+            )
+        else:
+            self.confirm_login_allowed(self.user_cache)
+
+    def clean_password(self):
+        log.debug("clean password")
+        password = self.cleaned_data["password"]
+        if password.count("$") != 2:
+            self._raise_validate_error(
+                "No two $ (found: %i) in password found in: %r" % (
+                    password.count("$"),password
+                )
+            )
+
+        sha_a, sha_b, cnonce = password.split("$")
         self._validate_sha1(sha_a, "sha_a")
 
         # Fill with null, to match the full SHA1 hexdigest length:
@@ -137,6 +191,7 @@ class SecureLoginForm(UsernameForm):
 
         self._validate_sha1(cnonce, "cnonce")
 
+        log.debug("Password data is valid.")
         return (sha_a, sha_b, cnonce)
 
 

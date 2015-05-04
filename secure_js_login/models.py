@@ -34,6 +34,17 @@ log = logging.getLogger("secure_js_login")
 # This doesn't work if its defined in views.py
 CNONCE_CACHE = {}
 
+
+class UserProfileManager(models.Manager):
+    def get_user_profile(self, username):
+        UserModel = get_user_model()
+        user = UserModel._default_manager.get_by_natural_key(username)
+        user_profile = self.get_queryset().get(user=user)
+        log.debug("User profile: %r for user %r" % (user_profile, user))
+        return (user, user_profile)
+
+
+
 @python_2_unicode_compatible
 class UserProfile(UpdateInfoBaseModel):
     """
@@ -48,13 +59,15 @@ class UserProfile(UpdateInfoBaseModel):
         createby       -> ForeignKey to user who creaded this entry
         lastupdateby   -> ForeignKey to user who has edited this entry
     """
+    objects = UserProfileManager()
+
     user = models.OneToOneField(settings.AUTH_USER_MODEL)
 
     sha_login_checksum = models.CharField(max_length=192,
-        help_text="Checksum for PyLucid JS-SHA-Login"
+        help_text="Checksum for secure JS login"
     )
     sha_login_salt = models.CharField(max_length=crypt.SALT_LEN,
-        help_text="Salt value for PyLucid JS-SHA-Login"
+        help_text="Salt value for secure JS login"
     )
 
     def set_sha_login_password(self, raw_password):
@@ -76,23 +89,15 @@ class UserProfile(UpdateInfoBaseModel):
 
 #______________________________________________________________________________
 # Create user profile via signals
-
-def create_user_profile(sender, **kwargs):
-    """ signal handler: creating user profile, after a new user created. """
-    print(sender)
-    print(kwargs)
-    user = kwargs["instance"]
-
-    userprofile, created = UserProfile.objects.get_or_create(user=user)
-    if created:
-        log.info("UserProfile entry for user '%s' created.", user)
 #
-#        if not user.is_superuser: # Info: superuser can automaticly access all sites
-#            site = Site.objects.get_current()
-#            userprofile.site.add(site)
-#            failsafe_message("Add site '%s' to '%s' UserProfile." % (site.name, user))
-
-signals.post_save.connect(create_user_profile, sender=settings.AUTH_USER_MODEL)
+# def create_user_profile(sender, **kwargs):
+#     """ signal handler: creating user profile, after a new user created. """
+#     user = kwargs["instance"]
+#     userprofile, created = UserProfile.objects.get_or_create(user=user)
+#     if created:
+#         log.info("UserProfile entry for user '%s' created.", user)
+#
+# signals.post_save.connect(create_user_profile, sender=settings.AUTH_USER_MODEL)
 
 
 #______________________________________________________________________________
@@ -128,7 +133,7 @@ if app_settings.AUTO_CREATE_PASSWORD_HASH:
         if created:
             log.info("UserProfile entry for user '%s' created.", user)
 
-        # Save the password for the JS-SHA-Login:
+        log.info("Create hash info from password %r", raw_password)
         userprofile.set_sha_login_password(raw_password)
         userprofile.save()
 

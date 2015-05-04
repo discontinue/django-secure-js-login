@@ -106,8 +106,8 @@ AUTO_CREATE_PASSWORD_HASH = True
 
 
 AUTHENTICATION_BACKENDS=(
-    # 'django.contrib.auth.backends.ModelBackend',
     'secure_js_login.auth_backends.SecureLoginAuthBackend',
+    'django.contrib.auth.backends.ModelBackend',
 )
 
 

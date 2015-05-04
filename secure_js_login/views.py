@@ -25,9 +25,11 @@ from django.utils.translation import ugettext as _
 from django.shortcuts import render_to_response
 from django.core import urlresolvers
 from django.views.decorators.csrf import csrf_protect, csrf_exempt, ensure_csrf_cookie
+from django.core.exceptions import ObjectDoesNotExist
+from django.contrib.auth.views import login
 
 # auth own stuff
-from secure_js_login.models import CNONCE_CACHE
+from secure_js_login.models import CNONCE_CACHE, UserProfile
 from secure_js_login.utils import crypt
 from secure_js_login.forms import WrongUserError, UsernameForm, SecureLoginForm
 from secure_js_login import settings as app_settings
@@ -120,7 +122,7 @@ def _wrong_login(request, user=None):
 
 
 @csrf_protect
-def secure_auth(request):
+def secure_auth(request, next="/"):
     """
     login the user with username and sha values.
     """
@@ -198,27 +200,29 @@ def secure_auth(request):
 def get_salt(request):
     """
     return the user password salt.
-    If the user doesn't exist or is not active, return a pseudo salt.
+    If the user doesn't exist return a pseudo salt.
     """
     log.debug("get_salt() requested.")
+
+    if not "username" in request.POST:
+        log.error("No 'username' in POST data?!?")
+        return HttpResponseBadRequest()
 
     user_profile = None
     form = UsernameForm(request.POST)
     if form.is_valid():
+        username = form.cleaned_data["username"]
         try:
-            user_profile = form.get_user_profile()
-        except WrongUserError as err:
-            msg = "can't get userprofile: %s" % err
+            user, user_profile = UserProfile.objects.get_user_profile(username)
+        except ObjectDoesNotExist as err:
+            msg = "Error getting user + profile: %s" % err
             log.error(msg)
             if settings.DEBUG:
                 messages.error(request, msg)
-
-    if user_profile is None: # Wrong user?
+    else:
         username = request.POST["username"]
-        msg = "Username %r is wrong: %r" % (username, form.errors)
-        log.error(msg)
-        if settings.DEBUG:
-            messages.error(request, msg)
+
+    if user_profile is None: # Form not valid or wrong username
         salt = crypt.get_pseudo_salt(username)
     else:
         salt = user_profile.sha_login_salt
@@ -231,13 +235,35 @@ def get_salt(request):
             salt = crypt.get_pseudo_salt(username)
 
     log.debug("send salt %r to client.", salt)
-
     return HttpResponse(salt, content_type="text/plain")
 
 
+def secure_js_login(request):
+    """
+    FIXME:
+        * Don't send a inserted password back, if form is not valid
+    """
+    # create a new challenge and add it to session
+    challenge = _get_challenge(request)
+    return login(request,
+        template_name="secure_js_login/sha_form.html",
+        # redirect_field_name=REDIRECT_FIELD_NAME,
+        authentication_form=SecureLoginForm,
+        current_app="secure_js_login",
+        extra_context={
+            "debug": "true" if settings.DEBUG else "false",
+            "challenge": challenge,
+            "old_salt_len": crypt.OLD_SALT_LEN,
+            "salt_len": crypt.SALT_LEN,
+            "hash_len": crypt.HASH_LEN,
+            "loop_count": app_settings.LOOP_COUNT,
+            "csrf_cookie_name": settings.CSRF_COOKIE_NAME,
+        }
+    )
+
 @csrf_protect
 @ensure_csrf_cookie
-def secure_js_login(request):
+def secure_js_loginOLD(request):
     """
     For better JavaScript debugging: Enable settings.DEBUG and request the page
     via GET with: "...?auth=login"
@@ -247,13 +273,6 @@ def secure_js_login(request):
 
     if request.method != 'GET':
         log.error("request method %r wrong, only GET allowed", request.method)
-        return HttpResponseBadRequest()
-
-    next_url = request.GET.get("next_url", request.path)
-
-    if "//" in next_url: # FIXME: How to validate this better?
-        # Don't redirect to other pages.
-        log.error("next url %r seems to be wrong!", next_url)
         return HttpResponseBadRequest()
 
     form = SecureLoginForm()

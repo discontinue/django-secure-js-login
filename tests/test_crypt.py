@@ -5,6 +5,9 @@ from secure_js_login.utils import crypt
 
 
 class TestCrypt(unittest.TestCase):
+    """
+    Low-level tests without models/views etc.
+    """
     # def setUp(self):
     #     crypt.seed_generator.DEBUG=True
     #

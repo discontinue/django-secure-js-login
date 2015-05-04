@@ -227,10 +227,10 @@ function sha_hexdigest(txt) {
     /*
         build the SHA hexdigest from the given string. Return false is anything is wrong.
     */
-    log("sha_hexdigest('" + txt + "'):");
+//    log("sha_hexdigest('" + txt + "'):");
     SHA_hexdigest = hex_sha1(txt); // from: sha.js
     assert_length(SHA_hexdigest, HASH_LEN, "SHA_hexdigest");
-    log(SHA_hexdigest);
+//    log(SHA_hexdigest);
     return SHA_hexdigest;
 }
 
@@ -259,12 +259,15 @@ function calculate_hashes(password, salt, challenge) {
     log("Build "+LOOP_COUNT+"x SHA1 from: sha_a + i + challenge + cnonce");
     for (i=0; i<LOOP_COUNT; i++)
     {
-        //log("sha1 round: " + i);
+        log("sha1 round: " + i);
         sha_a = sha_hexdigest(sha_a + i + challenge + cnonce);
     }
 
+    log("sha_a...: " + sha_a);
+    log("sha_b...: " + sha_b);
+    log("cnonce..: " + cnonce);
     result = sha_a + "$" + sha_b +"$" + cnonce;
-    log("Result: " + result)
+    log("Result: " + result);
     return result
 }
 
@@ -446,58 +449,61 @@ function init_secure_login() {
                 alert(e);
                 return false;
             }
+            log("Set password to: " + result);
             $(ID_PASSWORD).val(result);
+            log("Send form.");
+            return true
 
-            var post_data = {
-                "username": username,
-                "password": result
-            }
-            log("auth user, send POST:" + $.param(post_data));
-            page_msg_info(gettext("Send SHA-1 values to the server..."));
-            response = $.ajax({
-                async: false,
-                type: "POST",
-                url: secure_auth_url,
-                data: post_data,
-                dataType: "text",
-                success: function(data, textStatus, XMLHttpRequest){
-                    log("post request via ajax: " + textStatus);
-                },
-                error: ajax_error_handler
-            });
-            msg = response.responseText;
-            log("responseText:" + msg);
-            if (msg=="OK") {
-                 // login was ok
-                 page_msg_success(gettext("Login ok, loading..."));
-                 $(ID_PASSWORD).remove();
-                 window.location.href = next_url;
-                 return false;
-            }
-            if (msg.indexOf("<"+"head>") != -1) { // 'mask' tag, so it's not found by pylucid_js_tools.js / replace_page_content ;)
-                log("It seems we get a complete html page: replace the complete page");
-                $("html").html(msg);
-//                replace_complete_page(msg); // from pylucid_js_tools.js
-                return false;
-            }
-            if (msg.indexOf(";") == -1) {
-                log("Wrong server reponse! No ';' found!");
-                return false;
-            }         
-
-            // we get a new challenge and a error message from server
-            challenge = msg.substr(0, msg.indexOf(";"));
-            msg = msg.substr(msg.indexOf(";")+1);
-
-            log("new challenge:" + challenge);
-            page_msg_error(msg);
-
-            $("#password_block").css("display", "block").slideDown();
-            $("#sha_values_block").slideUp("slow");
-            $("#id_sha_a").val("");
-            $("#id_sha_b").val("");
-            $("#id_cnonce").val("");
-            $(ID_PASSWORD).focus();
+//            var post_data = {
+//                "username": username,
+//                "password": result
+//            }
+//            log("auth user, send POST:" + $.param(post_data));
+//            page_msg_info(gettext("Send SHA-1 values to the server..."));
+//            response = $.ajax({
+//                async: false,
+//                type: "POST",
+//                url: secure_auth_url,
+//                data: post_data,
+//                dataType: "text",
+//                success: function(data, textStatus, XMLHttpRequest){
+//                    log("post request via ajax: " + textStatus);
+//                },
+//                error: ajax_error_handler
+//            });
+//            msg = response.responseText;
+//            log("responseText:" + msg);
+//            if (msg=="OK") {
+//                 // login was ok
+//                 page_msg_success(gettext("Login ok, loading..."));
+//                 $(ID_PASSWORD).remove();
+//                 window.location.href = next_url;
+//                 return false;
+//            }
+//            if (msg.indexOf("<"+"head>") != -1) { // 'mask' tag, so it's not found by pylucid_js_tools.js / replace_page_content ;)
+//                log("It seems we get a complete html page: replace the complete page");
+//                $("html").html(msg);
+////                replace_complete_page(msg); // from pylucid_js_tools.js
+//                return false;
+//            }
+//            if (msg.indexOf(";") == -1) {
+//                log("Wrong server reponse! No ';' found!");
+//                return false;
+//            }
+//
+//            // we get a new challenge and a error message from server
+//            challenge = msg.substr(0, msg.indexOf(";"));
+//            msg = msg.substr(msg.indexOf(";")+1);
+//
+//            log("new challenge:" + challenge);
+//            page_msg_error(msg);
+//
+//            $("#password_block").css("display", "block").slideDown();
+//            $("#sha_values_block").slideUp("slow");
+//            $("#id_sha_a").val("");
+//            $("#id_sha_b").val("");
+//            $("#id_cnonce").val("");
+//            $(ID_PASSWORD).focus();
         } catch (e) {
             log("Error:" + e);
             alert("internal javascript error:" + e);

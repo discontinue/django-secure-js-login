@@ -17,7 +17,6 @@ var SALT_LEN=parseInt("{{ salt_len }}");
 var HASH_LEN=parseInt("{{ hash_len }}");
 var LOOP_COUNT=parseInt("{{ loop_count }}");
 var salt=""; {# get via ajax #}
-var secure_auth_url="{% url 'secure-js-login:secure_auth' %}";
 var get_salt_url="{% url 'secure-js-login:get_salt' %}";
 var ID_FORM="#login-form";
 var ID_USERNAME="#id_username";
