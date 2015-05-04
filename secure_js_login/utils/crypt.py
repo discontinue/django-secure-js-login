@@ -406,7 +406,10 @@ def decrypt(txt, key):
     key=force_bytes(key)
     decrypted = crypt(crypted, key)
 
-    decrypted = force_text(decrypted)
+    try:
+        decrypted = force_text(decrypted)
+    except UnicodeDecodeError:
+        raise SaltHashError("Can't decode data.")
 
     # raised a SaltHashError() if the checksum is wrong:
     check_salt_hash(decrypted, salt_hash)

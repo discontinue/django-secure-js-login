@@ -25,9 +25,30 @@ class TestCrypt(unittest.TestCase):
             'foo'
         )
 
+    def test_decrypt_wrong_key(self):
+        self.assertRaises(crypt.SaltHashError,
+            crypt.decrypt,
+            'sha1$DEBUG_123456$197987f5ca3fd97da45acac3541e3464198a1cee$BA4d',
+            key="bXr"
+        )
+
+    def test_decrypt_wrong_salt(self):
+        self.assertRaises(crypt.SaltHashError,
+            crypt.decrypt,
+            'sha1$DEBUG_12XX56$197987f5ca3fd97da45acac3541e3464198a1cee$BA4d',
+            key="bar"
+        )
+
     def test_decrypt_wrong_hash(self):
         self.assertRaises(crypt.SaltHashError,
             crypt.decrypt,
             'sha1$DEBUG_123456$197987f5ca3fd97da45aXXc3541e3464198a1cee$BA4d',
+            key="bar"
+        )
+
+    def test_decrypt_wrong_data(self):
+        self.assertRaises(crypt.SaltHashError,
+            crypt.decrypt,
+            'sha1$DEBUG_123456$197987f5ca3fd97da45acac3541e3464198a1cee$BAXd',
             key="bar"
         )
