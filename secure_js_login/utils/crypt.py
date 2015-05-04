@@ -32,6 +32,7 @@ from __future__ import unicode_literals
 
 import base64
 import hashlib
+import logging
 import os
 import random
 import re
@@ -49,6 +50,8 @@ else:
 from django.utils import six
 from django.utils.encoding import force_bytes, force_text
 
+
+log = logging.getLogger("secure_js_login")
 
 # Warning: Debug must always be False in productive environment!
 # DEBUG = True
@@ -144,6 +147,7 @@ class SeedGenerator(object):
     DEBUG=False
     def __call__(self):
         if self.DEBUG:
+            log.critical("Use DEBUG seed!")
             return "DEBUG_1234567890"
 
         raw_seed = "%s%s%s%s" % (
@@ -530,6 +534,7 @@ def check_js_sha_checksum(challenge, sha_a, sha_b, sha_checksum, loop_count, cno
     True
     """
     local_sha_a = decrypt(sha_checksum, sha_b)
+    log.debug("decrypt %r to %r" % (sha_checksum, local_sha_a))
 
     for i in range(loop_count):
         local_sha_a = hash_hexdigest(
@@ -538,9 +543,8 @@ def check_js_sha_checksum(challenge, sha_a, sha_b, sha_checksum, loop_count, cno
 
     if local_sha_a == sha_a:
         return True
-    elif DEBUG:
-        return "%r != %r" % (local_sha_a, sha_a)
 
+    log.debug("Hash check failed: %r != %r" % (local_sha_a, sha_a))
     return False
 
 
