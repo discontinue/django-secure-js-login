@@ -2,13 +2,12 @@
 
 JavaScript Challenge-handshake authentication django app.
 
+**Status: Currently it's not ready to use!**
+
 First:
 The JS-SHA1-Login is not a simple //"send username + SHA(password)"//
 It is more a [[http://en.wikipedia.org/wiki/Challenge-handshake_authentication_protocol|Challenge-handshake authentication protocol]]!
 
-== Status
-
-Currently it's not usable, because it's only splited from [[https://github.com/jedie/PyLucid|PyLucid git repository]] and needs some changes!
 
 === how
 
