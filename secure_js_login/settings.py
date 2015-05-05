@@ -12,10 +12,23 @@ MIN_PAUSE = getattr(settings, "MIN_PAUSE", 5)
 # Enable login honypot?
 USE_HONYPOT = getattr(settings, "USE_HONYPOT", False)
 
-# Number of loops in the JS-SHA1-Process for repeatedly apply
-# the client-nonce for hash based key stretching.
-# (Note: Higher count increase the security, but causes more CPU load on client and server.)
-LOOP_COUNT = getattr(settings, "LOOP_COUNT", 15)
+# Number of loops in PBKDF2 for hash based key stretching.
+# TODO: Tryout how fast e.g. a Raspberry Pi is!
+# Notes:
+#   * Higher count increase the security, but causes more CPU load on client and server.
+#   * Use higher values carefully, because of showiness of the JavaScript Implementation!
+#   * **ITERATIONS1** should be not changed if passwords already stored in database!
+#   * **ITERATIONS2** can be changed very time!
+ITERATIONS1 = getattr(settings, "ITERATIONS1", 250) # for storing a part of the password in the database
+ITERATIONS2 = getattr(settings, "ITERATIONS2", 250) # for generate on-the-fly the server challenge
+
+# Length of the generated PBKDF2 hash in bytes:
+PBKDF2_BYTE_LENGTH = 32 # max length: 256 by model field!
+
+# Length of random string values:
+PBKDF2_SALT_LENGTH = 12 # max length: 256 by model field!
+RANDOM_CHALLENGE_LENGTH = 24
+CLIENT_NONCE_LENGTH = 24
 
 # Use https (secure http) for login forms?
 HTTPS_URLS = getattr(settings, "HTTPS_URLS", False)

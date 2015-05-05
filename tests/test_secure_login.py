@@ -37,7 +37,7 @@ class TestCrypt(SimpleTestCase):
         sha_a = hash[:20]
         sha_b = hash[20:]
 
-        test = crypt.decrypt(sha_login_checksum, key=sha_b)
+        test = crypt.xor_decrypt(sha_login_checksum, key=sha_b)
         self.assertEqual(test, sha_a)
 
 

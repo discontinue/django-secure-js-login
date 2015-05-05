@@ -74,7 +74,7 @@ class SecureLoginAuthBackend(ModelBackend):
 
         try:
             check = crypt.check_js_sha_checksum(**kwargs)
-        except crypt.SaltHashError as err:
+        except crypt.CryptError as err:
             # Wrong password
             log.error("User %r check_js_sha_checksum error: %s" % (user, err))
             if LOCAL_DEBUG:

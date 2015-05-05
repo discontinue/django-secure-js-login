@@ -63,23 +63,21 @@ class UserProfile(UpdateInfoBaseModel):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL)
 
-    sha_login_checksum = models.CharField(max_length=192,
-        help_text="Checksum for secure JS login"
+    secure_login_checksum = models.CharField(max_length=256,
+        help_text="XOR encrypted PBKDF2 salted checksum"
     )
-    sha_login_salt = models.CharField(max_length=crypt.SALT_LEN,
-        help_text="Salt value for secure JS login"
+    secure_login_salt = models.CharField(max_length=256,
+        help_text="initial salt for PBKDF2 password hash"
     )
 
-    def set_sha_login_password(self, raw_password):
+    def set_secure_login_data(self, password):
         """
-        create salt+checksum for JS-SHA-Login.
-        see also: http://www.pylucid.org/_goto/8/JS-SHA-Login/
+        Create a XOR encrypted PBKDF2 salted checksum from a plaintext password.
         """
-        raw_password = str(raw_password)
-        salt, sha_checksum = crypt.make_sha_checksum2(raw_password)
-        self.sha_login_salt = salt
-        self.sha_login_checksum = sha_checksum
-        log.info("SHA Login salt+checksum set for user '%s'.", self.user)
+        salt, checksum = crypt.salt_hash_from_plaintext(password)
+        self.secure_login_salt = salt
+        self.secure_login_checksum = checksum
+        log.info("Secure login data saved for user '%s'.", self.user)
 
     def __str__(self):
         return "user %r" % self.user.username
@@ -119,7 +117,7 @@ if app_settings.AUTO_CREATE_PASSWORD_HASH:
 
 
     def set_password(user, raw_password):
-        log.debug("set password %r for user %r", raw_password, user.username)
+        log.debug("set plaintext password for user %r", user.username)
 
         if user.id == None:
             # It is a new user. We must save the django user accound first to get a
@@ -133,8 +131,7 @@ if app_settings.AUTO_CREATE_PASSWORD_HASH:
         if created:
             log.info("UserProfile entry for user '%s' created.", user)
 
-        log.info("Create hash info from password %r", raw_password)
-        userprofile.set_sha_login_password(raw_password)
+        userprofile.set_secure_login_data(raw_password)
         userprofile.save()
 
 
