@@ -54,8 +54,8 @@ client browser / JavaScript part::
 # Client send **init_pass_salt** and **pbkdf2_hash** to the server
 
 Server part:
-# Server split **pbkdf2_hash** into: **first-pbkdf2-part** and **second-pbkdf2-part**
-# {{{encrypted_part = xor_encrypt(first-pbkdf2-part, key=second-pbkdf2-part)}}}
+# Server split **pbkdf2_hash** into: **first_pbkdf2_part** and **second_pbkdf2_part**
+# {{{encrypted_part = xor_encrypt(first_pbkdf2_part, key=second_pbkdf2_part)}}}
 # Save only **encrypted_part** and given **init_pass_salt** from client
 
 ==== Login - client browser / JavaScript part: ====
@@ -66,18 +66,18 @@ Server part:
 # Ajax Request the **init_pass_salt** from server with the given **username**
 # generate the auth data:
 ## {{{pbkdf2_hash = pbkdf2("Plain Password", init_pass_salt)}}}
-## split **pbkdf2_hash** into **first-pbkdf2-part** and **second-pbkdf2-part**
+## split **pbkdf2_hash** into **first_pbkdf2_part** and **second_pbkdf2_part**
 ## {{{cnonce = SHA1(random data)}}}
-## {{{pbkdf2_hash1 = pbkdf2(first-pbkdf2-part, salt=cnonce + server_challenge)}}}
-# send **pbkdf2_hash1**, **second-pbkdf2-part** and **cnonce** to the server
+## {{{pbkdf2_hash1 = pbkdf2(first_pbkdf2_part, salt=cnonce + server_challenge)}}}
+# send **pbkdf2_hash1**, **second_pbkdf2_part** and **cnonce** to the server
 
 ==== validation on the server ====
 
-# client POST data: **pbkdf2_hash1**, **second-pbkdf2-part** and **cnonce**
+# client POST data: **pbkdf2_hash1**, **second_pbkdf2_part** and **cnonce**
 # get transmitted **server_challenge** value from session
 # get **encrypted_part** and **salt** from database via given **username**
-# {{{first-pbkdf2-part = xor_decrypt(encrypted_part, key=second-pbkdf2-part)}}}
-# {{{test_hash = pbkdf2(first-pbkdf2-part, key=cnonce + server_challenge)}}}
+# {{{first_pbkdf2_part = xor_decrypt(encrypted_part, key=second_pbkdf2_part)}}}
+# {{{test_hash = pbkdf2(first_pbkdf2_part, key=cnonce + server_challenge)}}}
 # compare **test_hash** with transmitted **pbkdf2_hash1**
 
 == secure?
