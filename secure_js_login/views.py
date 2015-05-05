@@ -172,13 +172,14 @@ def get_salt(request):
     form = UsernameForm(request.POST)
     if form.is_valid():
         username = form.cleaned_data["username"]
+        log.debug("Get profile for user: %s", username)
         try:
             user, user_profile = form.get_user_and_profile()
         except ObjectDoesNotExist as err:
             msg = "Error getting user + profile: %s" % err
             log.error(msg)
             if settings.DEBUG:
-                messages.error(request, msg)
+                raise
         else:
             send_pseudo_salt=False
     else:
@@ -214,6 +215,7 @@ def secure_js_login(request):
     """
     # create a new challenge and add it to session
     server_challenge = _get_server_challenge(request)
+    log.debug("secure_js_login() POST data: %r", request.POST)
     return login(request,
         template_name="secure_js_login/sha_form.html",
         # redirect_field_name=REDIRECT_FIELD_NAME,

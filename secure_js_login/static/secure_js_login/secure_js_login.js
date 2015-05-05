@@ -278,18 +278,22 @@ function calculate_hashes(password, salt, challenge, callback) {
     log('pbkdf2_temp_hash = pbkdf2("Plain Password", init_pass_salt):');
 
     var old_value = $(ID_PASSWORD).val();
-    pbkdf2( password, salt, function(pbkdf2_temp_hash) {
+    pbkdf2(password, salt, function(pbkdf2_temp_hash) {
         log("pbkdf2_temp_hash = " + pbkdf2_temp_hash);
 
         // split pbkdf2_temp_hash
         first_pbkdf2_part = pbkdf2_temp_hash.substr(0, PBKDF2_BYTE_LENGTH);
         second_pbkdf2_part = pbkdf2_temp_hash.substr(PBKDF2_BYTE_LENGTH, PBKDF2_BYTE_LENGTH);
         log("split: |"+first_pbkdf2_part+"|"+second_pbkdf2_part+"|");
+        log("first_pbkdf2_part = " + first_pbkdf2_part);
+        log("second_pbkdf2_part = " + second_pbkdf2_part);
 
         var cnonce = generate_nonce("django secure JS login");
         assert_length(cnonce, NONCE_LENGTH, "cnonce");
+        log("pbkdf2_hash = pbkdf2(first_pbkdf2_part, salt=cnonce + server_challenge)");
         pbkdf2(first_pbkdf2_part, cnonce + challenge, function(pbkdf2_hash) {
             log("pbkdf2_hash = " + pbkdf2_hash);
+            log("result = pbkdf2_hash + $ + second_pbkdf2_part + $ + cnonce")
             var result = pbkdf2_hash + "$" + second_pbkdf2_part + "$" + cnonce;
             log("result = " + result);
             $(ID_PASSWORD).val(result);
@@ -298,34 +302,6 @@ function calculate_hashes(password, salt, challenge, callback) {
     });
 }
 
-function calculate_salted_sha1(password) {
-    /*
-        Generate the Django password hash
-        currently we only generated the salted SHA1 hash
-        see: hashers.SHA1PasswordHasher()
-        
-        TODO:
-        Use http://code.google.com/p/crypto-js/
-        to support hashers.PBKDF2PasswordHasher() in JS Code
-    */
-    log("calculate_salted_sha1():");
-   
-    log("Generate salt with a length of:"+SALT_LEN);
-   
-    var cnonce = generate_nonce("django hash");
-    var salt = cnonce.substr(0, SALT_LEN);
-    log("salt to use: ["+salt+"] (length:"+salt.length+")");
-    assert_length(salt, SALT_LEN, "salt");
-    
-    var sha1hash = sha_hexdigest(salt + password);
-    log("salted SHA1 hash: ["+sha1hash+"] (length:"+sha1hash.length+")");
-    assert_length(sha1hash, HASH_LEN, "sha1hash");
-
-    return {
-        "salt": salt,
-        "sha1hash": sha1hash,
-    }
-}
 
 //-----------------------------------------------------------------------------
 
@@ -389,6 +365,7 @@ function init_secure_login() {
     }
 
     $("form").slideDown();
+    $(ID_USERNAME).focus();
 
     $(ID_USERNAME).change(function() {
         // if the username change, we must get a new salt from server.
@@ -397,6 +374,9 @@ function init_secure_login() {
         salt="";
         return false;
     });
+
+    $(ID_USERNAME).val("test"); // XXX: for testing only!!!
+    setTimeout(function() { $(ID_PASSWORD).val("12345678"); }, 2); // XXX: for testing only!!!
 
     var submit_by="user";
     var salt=""; // will be set via ajax

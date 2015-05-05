@@ -21,6 +21,7 @@ import codecs
 import hashlib
 import logging
 import os
+import pprint
 import random
 import re
 import sys
@@ -121,7 +122,7 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
     """
     Similar to origin django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher but:
         * variable: iterations, length
-        * hexlify the PBKDF2 bytes instead of use base64 encoding
+        * hexlify the PBKDF2 bytes instead of use base64 encoding (To get always the same length)
 
     >>> h = PBKDF2SHA1Hasher(iterations=1000, length=32)
     >>> hash = h.encode(password="not secret", salt="a salt value")
@@ -166,6 +167,7 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
             assert iterations==self.iterations, "wrong iterations"
 
         hash = hexlify_pbkdf2(password, salt, iterations=self.iterations, length=self.length, digest=self.digest)
+        # log.debug("locals(): %s", pprint.pformat(locals()))
         return "%s$%d$%s$%s" % (self.algorithm, self.iterations, salt, hash)
 
     def get_hash(self, password, salt):
@@ -227,6 +229,8 @@ class CryptLengthError(AssertionError):
 class XorCryptor(object):
     """
     XOR ciphering
+
+    TODO: Use hex instead of base64 to get always the same length
 
     >>> seed_generator.DEBUG=True # Generate always the same seed for tests
     >>> app_settings.ITERATIONS1=10
@@ -368,6 +372,7 @@ def salt_hash_from_plaintext(password):
 
     encrypted_part = xor_crypt.encrypt(first_pbkdf2_part, key=second_pbkdf2_part)
 
+    log.debug("locals(): %s", pprint.pformat(locals()))
     return init_pbkdf2_salt, encrypted_part
 
 
@@ -385,12 +390,13 @@ def check_secure_js_login(encrypted_part, server_challenge, pbkdf2_hash, second_
         iterations=app_settings.ITERATIONS2,
         length=app_settings.PBKDF2_BYTE_LENGTH
     )
+    log.debug("locals(): %s", pprint.pformat(locals()))
     if test_hash==pbkdf2_hash:
         log.info("secure js login check is ok!")
         return True
 
     log.error("secure js login check failed!")
-
+    log.error("%r != %r", test_hash, pbkdf2_hash)
     return False
 
 

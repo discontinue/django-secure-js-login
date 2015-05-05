@@ -37,6 +37,7 @@ CNONCE_CACHE = {}
 
 class UserProfileManager(models.Manager):
     def get_user_profile(self, user):
+        assert isinstance(user, get_user_model())
         user_profile = self.get_queryset().get(user=user)
         log.debug("User profile: %r for user %r" % (user_profile, user))
         return user_profile

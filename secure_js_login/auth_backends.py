@@ -58,32 +58,9 @@ class SecureLoginAuthBackend(ModelBackend):
             log.debug("normal auth, e.g.: normal django admin login pages was used")
             return
 
-        try:
-            user, user_profile = UserProfile.objects.get_user_profile(username)
-        except ObjectDoesNotExist as err:
-            msg = "Error getting user + profile: %s" % err
-            log.error(msg)
-            if LOCAL_DEBUG:
-                raise
-            return
-
-        kwargs["secure_login_checksum"] = user_profile.secure_login_checksum
+        user = kwargs.pop("user")
 
         log.debug("Check with: %r" % repr(kwargs))
-
-        try:
-            check = crypt.check_secure_js_login(**kwargs)
-        except crypt.CryptError as err:
-            # Wrong password
-            log.error("User %r check_js_sha_checksum error: %s" % (user, err))
-            if LOCAL_DEBUG:
-                raise
-            return
-
-        if check != True:
-            # Wrong password
-            log.error("User %r check_js_sha_checksum failed." % user)
-            return
-
-        log.info("User ok!")
-        return user
+        check = crypt.check_secure_js_login(**kwargs)
+        if check == True:
+            return user

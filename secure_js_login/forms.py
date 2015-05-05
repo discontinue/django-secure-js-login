@@ -45,22 +45,26 @@ class UsernameForm(forms.Form):
         super(UsernameForm, self).__init__(*args, **kwargs)
 
     def get_user(self):
+        log.debug("get user")
         if not self.user_cache:
+            log.debug("111 %s", self.cleaned_data)
             username = self.cleaned_data["username"]
             try:
-                user = get_user_model().objects.get(username=username)
+                self.user_cache = get_user_model().objects.get(username=username)
             except get_user_model().DoesNotExist as err:
+                if settings.DEBUG:
+                    raise
                 raise WrongUserError("User %r doesn't exists!" % username)
 
-            if not user.is_active:
-                raise WrongUserError("User %r is not active!" % user)
+            if not self.user_cache.is_active:
+                raise WrongUserError("User %r is not active!" % self.user_cache)
 
-            log.debug("User %r: %r", username, user)
-
+        log.debug("Used cached user: %s", self.user_cache)
         return self.user_cache
 
     def get_user_and_profile(self):
         user = self.get_user()
+        assert isinstance(user, get_user_model())
         user_profile = UserProfile.objects.get_user_profile(user)
         return user, user_profile
 
@@ -88,7 +92,7 @@ PBKDF2_HALF_HEX_Validator = HashValidator(length=crypt.PBKDF2_HALF_HEX_LENGTH)
 CLIENT_NONCE_HEX_Validator = HashValidator(length=app_settings.CLIENT_NONCE_LENGTH)
 
 
-class SecureLoginForm(AuthenticationForm, UsernameForm):
+class SecureLoginForm(UsernameForm, AuthenticationForm):
     """
     data from the client as password:
         send pbkdf2_hash1, second-pbkdf2-part and cnonce to the server
@@ -102,7 +106,6 @@ class SecureLoginForm(AuthenticationForm, UsernameForm):
         log.debug(msg)
         if not settings.DEBUG:
             msg = self.error_messages['invalid_login']
-
         raise forms.ValidationError(msg)
 
     def clean(self):
@@ -110,8 +113,7 @@ class SecureLoginForm(AuthenticationForm, UsernameForm):
 
         username = self.cleaned_data.get('username')
         if not username:
-            log.error("No Username?!?")
-            return
+            self._raise_validate_error("No Username?!?")
 
         try:
             pbkdf2_hash, second_pbkdf2_part, cnonce = self.cleaned_data.get('password')
@@ -136,31 +138,30 @@ class SecureLoginForm(AuthenticationForm, UsernameForm):
         else:
             log.debug("Challenge from session: %r", server_challenge)
 
-        user = self.get_user()
-        if not user:
-            log.error("No User?!?")
-            return
-
-        user_profile = UserProfile.objects.get_user_profile(user)
+        user, user_profile = self.get_user_and_profile()
 
         kwargs = {
             "username":username,
+            "user": user,
             "encrypted_part": user_profile.encrypted_part,
             "server_challenge":server_challenge,
             "pbkdf2_hash":pbkdf2_hash,
             "second_pbkdf2_part":second_pbkdf2_part,
             "cnonce":cnonce,
         }
-        log.info("Call authenticate with: %s", repr(kwargs))
-        self.user_cache = authenticate(**kwargs)
-        if self.user_cache is None:
-            raise forms.ValidationError(
-                self.error_messages['invalid_login'],
-                code='invalid_login',
-                params={'username': self.username_field.verbose_name},
-            )
-        else:
-            self.confirm_login_allowed(self.user_cache)
+        # log.info("Call authenticate with: %s", repr(kwargs))
+
+        try:
+            user = authenticate(**kwargs)
+        except crypt.CryptError as err:
+            self._raise_validate_error("crypt.check_secure_js_login error: %s", err)
+
+        if not user:
+            self._raise_validate_error("crypt.check_secure_js_login failed!")
+
+        self.confirm_login_allowed(user)
+        return user
+
 
     def clean_password(self):
         log.debug("clean password")
