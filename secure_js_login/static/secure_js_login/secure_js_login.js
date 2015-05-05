@@ -1,5 +1,5 @@
 /*
-    PyLucid shared_sha_tools.js
+    PyLucid secure_js_login.js
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
     A secure JavaScript SHA-1 AJAX Login.
@@ -313,7 +313,7 @@ function test_sha_js() {
     }
 
     if (typeof sha_hexdigest === 'undefined') {
-        throw "Error:\nWrong shared_sha_tools.js loaded! Please update your static files\n(sha_hexdigest not defined)";
+        throw "Error:\nWrong secure_js_login.js loaded! Please update your static files\n(sha_hexdigest not defined)";
     }
     
     var digits="0123456789";

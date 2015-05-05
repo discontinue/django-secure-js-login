@@ -9,7 +9,7 @@ var next_url="{{ next_url }}";
 <script type="text/javascript" src="{% static 'admin/js/jquery.min.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
 <script type="text/javascript" src="{% url 'django.views.i18n.javascript_catalog' packages='auth' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
 <script type="text/javascript" src="{% static 'secure_js_login/sha.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
-<script type="text/javascript" src="{% static 'secure_js_login/shared_sha_tools.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
+<script type="text/javascript" src="{% static 'secure_js_login/secure_js_login.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
 <script type="text/javascript">
 var debug={{ debug }};
 var OLD_SALT_LEN=parseInt("{{ old_salt_len }}");
