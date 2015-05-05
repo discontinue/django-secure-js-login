@@ -49,23 +49,23 @@ For getting the login form, the {{{challenge}}} and {{{salt}}} we used AJAX (wit
 
 client browser / JavaScript part::
 # user input a password
-# {{{init_pass_salt = SHA1(random data)}}}
-# {{{pbkdf2_hash = pbkdf2("Plain Password", salt=init_pass_salt)}}}
-# Client send **init_pass_salt** and **pbkdf2_hash** to the server
+# {{{init_pbkdf2_salt = SHA1(random data)}}}
+# {{{pbkdf2_hash = pbkdf2("Plain Password", salt=init_pbkdf2_salt)}}}
+# Client send **init_pbkdf2_salt** and **pbkdf2_hash** to the server
 
 Server part:
 # Server split **pbkdf2_hash** into: **first_pbkdf2_part** and **second_pbkdf2_part**
 # {{{encrypted_part = xor_encrypt(first_pbkdf2_part, key=second_pbkdf2_part)}}}
-# Save only **encrypted_part** and given **init_pass_salt** from client
+# Save only **encrypted_part** and given **init_pbkdf2_salt** from client
 
 ==== Login - client browser / JavaScript part: ====
 
 # Use request login
 # server send html login form with a random **server_challenge** value
 # User enters his **username** and **password**
-# Ajax Request the **init_pass_salt** from server with the given **username**
+# Ajax Request the **init_pbkdf2_salt** from server with the given **username**
 # generate the auth data:
-## {{{pbkdf2_temp_hash = pbkdf2("Plain Password", init_pass_salt)}}}
+## {{{pbkdf2_temp_hash = pbkdf2("Plain Password", init_pbkdf2_salt)}}}
 ## split **pbkdf2_temp_hash** into **first_pbkdf2_part** and **second_pbkdf2_part**
 ## {{{cnonce = SHA1(random data)}}}
 ## {{{pbkdf2_hash = pbkdf2(first_pbkdf2_part, salt=cnonce + server_challenge)}}}
