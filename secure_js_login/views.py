@@ -47,65 +47,24 @@ if DEBUG:
     warnings.warn("Debug mode in auth plugin is on! print statements would be used!")
 
 
-def _get_challenge(request):
-    """ create a new challenge, add it to session and return it"""
+def _get_server_challenge(request):
+    """ create a new server_challenge, add it to session and return it"""
     if DEBUG:
-        challenge = "12345"
-        log.critical("use DEBUG challenge: %r", challenge)
-    else:
-        # Create a new random salt value for the password challenge:
-        challenge = crypt.seed_generator()
+        crypt.seed_generator.DEBUG=True # Generate always the same seed for tests
+
+    # Create a new random salt value for the password server_challenge:
+    server_challenge = crypt.seed_generator(app_settings.RANDOM_CHALLENGE_LENGTH)
+
+    crypt.seed_generator.DEBUG=False
+    if DEBUG:
+        log.critical("use DEBUG server_challenge: %r", server_challenge)
 
     # For later comparing with form data
-    request.session["challenge"] = challenge
-    log.debug("Save new challenge %r to session.", challenge)
+    request.session["server_challenge"] = server_challenge
+    log.debug("Save new server_challenge %r to session.", server_challenge)
 
-    return challenge
+    return server_challenge
 
-
-
-
-
-def lucidTag(request):
-    """
-    Create login/logout link
-    example: {% lucidTag auth %}
-    """
-    context = {
-        "honypot_url": "#top" # Don't use honypot
-    }
-    if request.user.is_authenticated():
-        template_name = "secure_js_login/logout_link.html"
-        if hasattr(request.PYLUCID, "pagetree"):
-            # We are on a normal cms page -> Dont's change the url
-            url = ""
-        else:
-            # We are in the django admin panel -> Go to root page
-            url = "/"
-        url += "?auth=logout"
-    else:
-        if app_settings.USE_HONYPOT:
-            try: # Use the first PluginPage instance
-                honypot_url = PluginPage.objects.reverse("auth", 'Auth-login_honeypot')
-            except urlresolvers.NoReverseMatch as err:
-                if settings.RUN_WITH_DEV_SERVER:
-                    print("*** Can't get 'Auth-login_honeypot' url: %s" % err)
-            else:
-                context["honypot_url"] = honypot_url
-
-        if not app_settings.HTTPS_URLS:
-            template_name = "secure_js_login/login_link.html"
-            url = ""
-        else:
-            # Use https for login
-            template_name = "secure_js_login/login_link_https.html"
-            url = "https://%s%s" % (request.get_host(), request.path)
-
-        url += "?auth=login"
-
-    context["url"] = url
-
-    return render_to_string(template_name, context, context_instance=RequestContext(request))
 
 
 def _wrong_login(request, user=None):
@@ -113,7 +72,7 @@ def _wrong_login(request, user=None):
     log.error("Login error, username: %r", user.username)
 
     # create a new challenge and add it to session
-    challenge = _get_challenge(request)
+    challenge = _get_server_challenge(request)
 
     error_msg = _("Wrong username/password.")
     response = "%s;%s" % (challenge, error_msg)
@@ -208,34 +167,44 @@ def get_salt(request):
         log.error("No 'username' in POST data?!?")
         return HttpResponseBadRequest()
 
-    user_profile = None
+    send_pseudo_salt=True
+
     form = UsernameForm(request.POST)
     if form.is_valid():
         username = form.cleaned_data["username"]
         try:
-            user, user_profile = UserProfile.objects.get_user_profile(username)
+            user, user_profile = form.get_user_and_profile()
         except ObjectDoesNotExist as err:
             msg = "Error getting user + profile: %s" % err
             log.error(msg)
             if settings.DEBUG:
                 messages.error(request, msg)
+        else:
+            send_pseudo_salt=False
     else:
         username = request.POST["username"]
 
-    if user_profile is None: # Form not valid or wrong username
-        salt = crypt.get_pseudo_salt(username)
-    else:
-        salt = user_profile.sha_login_salt
-        if len(salt)!=crypt.SALT_LEN:
-            msg = "Salt for user %r has wrong length: %r" % (request.POST["username"], salt)
+    if not send_pseudo_salt: # Form not valid or wrong username
+        init_pbkdf2_salt = user_profile.init_pbkdf2_salt
+        if not init_pbkdf2_salt:
+            msg="No init_pbkdf2_salt set in user profile!"
+            log.error(msg)
             if settings.DEBUG:
                 raise AssertionError(msg)
-
+            send_pseudo_salt=True
+        elif len(init_pbkdf2_salt)!=app_settings.PBKDF2_SALT_LENGTH:
+            msg = "Salt for user %r has wrong length: %r" % (request.POST["username"], init_pbkdf2_salt)
             log.error(msg)
-            salt = crypt.get_pseudo_salt(username)
+            if settings.DEBUG:
+                raise AssertionError(msg)
+            send_pseudo_salt=True
 
-    log.debug("send salt %r to client.", salt)
-    return HttpResponse(salt, content_type="text/plain")
+    if send_pseudo_salt:
+        log.debug("Use pseudo salt!!!")
+        init_pbkdf2_salt = crypt.get_pseudo_salt(app_settings.PBKDF2_SALT_LENGTH, username)
+
+    log.debug("send init_pbkdf2_salt %r to client.", init_pbkdf2_salt)
+    return HttpResponse(init_pbkdf2_salt, content_type="text/plain")
 
 
 def secure_js_login(request):
@@ -244,70 +213,24 @@ def secure_js_login(request):
         * Don't send a inserted password back, if form is not valid
     """
     # create a new challenge and add it to session
-    challenge = _get_challenge(request)
+    server_challenge = _get_server_challenge(request)
     return login(request,
         template_name="secure_js_login/sha_form.html",
         # redirect_field_name=REDIRECT_FIELD_NAME,
         authentication_form=SecureLoginForm,
         current_app="secure_js_login",
         extra_context={
-            "debug": "true" if settings.DEBUG else "false",
-            "challenge": challenge,
-            "old_salt_len": crypt.OLD_SALT_LEN,
-            "salt_len": crypt.SALT_LEN,
-            "hash_len": crypt.HASH_LEN,
-            "loop_count": app_settings.LOOP_COUNT,
-            "csrf_cookie_name": settings.CSRF_COOKIE_NAME,
+            "DEBUG": "true" if settings.DEBUG else "false",
+            "challenge": server_challenge,
+            "CHALLENGE_LENGTH": app_settings.RANDOM_CHALLENGE_LENGTH,
+            "NONCE_LENGTH": app_settings.CLIENT_NONCE_LENGTH,
+            "SALT_LENGTH": app_settings.PBKDF2_SALT_LENGTH,
+            "PBKDF2_BYTE_LENGTH": app_settings.PBKDF2_BYTE_LENGTH,
+            "ITERATIONS": app_settings.ITERATIONS2,
+            "CSRF_COOKIE_NAME": settings.CSRF_COOKIE_NAME,
         }
     )
 
-@csrf_protect
-@ensure_csrf_cookie
-def secure_js_loginOLD(request):
-    """
-    For better JavaScript debugging: Enable settings.DEBUG and request the page
-    via GET with: "...?auth=login"
-    """
-    if DEBUG:
-        print("auth debug mode is on!")
-
-    if request.method != 'GET':
-        log.error("request method %r wrong, only GET allowed", request.method)
-        return HttpResponseBadRequest()
-
-    form = SecureLoginForm()
-
-    # create a new challenge and add it to session
-    challenge = _get_challenge(request)
-
-    try:
-        # url from django-authopenid, only available if the urls.py are included
-        reset_link = urlresolvers.reverse("auth_password_reset")
-    except urlresolvers.NoReverseMatch:
-        reset_link = None
-        # try:
-        #     # DjangoBB glue plugin adds the urls from django-authopenid
-        #     reset_link = PluginPage.objects.reverse("djangobb_plugin", "auth_password_reset")
-        # except KeyError:
-        #     # plugin is not installed
-        #     reset_link = None
-        # except urlresolvers.NoReverseMatch:
-        #     # plugin is installed, but not in used (no PluginPage created)
-        #     reset_link = None
-
-    context = {
-        "debug": "true" if settings.DEBUG else "false",
-        "challenge": challenge,
-        "old_salt_len": crypt.OLD_SALT_LEN,
-        "salt_len": crypt.SALT_LEN,
-        "hash_len": crypt.HASH_LEN,
-        "loop_count": app_settings.LOOP_COUNT,
-        "next": next_url,
-        "form": form,
-        "pass_reset_link": reset_link,
-        "csrf_cookie_name": settings.CSRF_COOKIE_NAME,
-    }
-    return render_to_response('secure_js_login/sha_form.html', context, context_instance=RequestContext(request))
 
 
 

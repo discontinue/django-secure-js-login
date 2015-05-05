@@ -11,18 +11,21 @@
 """
 
 import logging
+import re
 
 from django import forms
 from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
+from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext as _
 from django.forms.forms import NON_FIELD_ERRORS
 from django.contrib.auth import authenticate
 
 from secure_js_login.utils import crypt
 from secure_js_login.models import UserProfile, CNONCE_CACHE
+from secure_js_login import settings as app_settings
 
 
 log = logging.getLogger("secure_js_login")
@@ -37,86 +40,63 @@ class UsernameForm(forms.Form):
         help_text=_('Required. 30 characters or fewer. Alphanumeric characters only (letters, digits and underscores).')
     )
 
+    def __init__(self, *args, **kwargs):
+        self.user_cache = None
+        super(UsernameForm, self).__init__(*args, **kwargs)
+
     def get_user(self):
-        username = self.cleaned_data["username"]
-        try:
-            user = get_user_model().objects.get(username=username)
-        except get_user_model().DoesNotExist as err:
-            raise WrongUserError("User %r doesn't exists!" % username)
+        if not self.user_cache:
+            username = self.cleaned_data["username"]
+            try:
+                user = get_user_model().objects.get(username=username)
+            except get_user_model().DoesNotExist as err:
+                raise WrongUserError("User %r doesn't exists!" % username)
 
-        if not user.is_active:
-            raise WrongUserError("User %r is not active!" % user)
+            if not user.is_active:
+                raise WrongUserError("User %r is not active!" % user)
 
-        log.debug("User %r: %r", username, user)
-        return user
+            log.debug("User %r: %r", username, user)
 
+        return self.user_cache
 
     def get_user_and_profile(self):
         user = self.get_user()
-        user_profile = self.get_user_profile(user)
+        user_profile = UserProfile.objects.get_user_profile(user)
         return user, user_profile
 
 
-class Sha1BaseForm(forms.Form):
-    sha_a = forms.CharField(min_length=crypt.HASH_LEN, max_length=crypt.HASH_LEN)
-    sha_b = forms.CharField(min_length=crypt.HASH_LEN / 2, max_length=crypt.HASH_LEN / 2)
-    cnonce = forms.CharField(min_length=crypt.HASH_LEN, max_length=crypt.HASH_LEN)
-
-    def _validate_sha1(self, sha_value, key):
-        if crypt.validate_sha_value(sha_value) != True:
-            raise forms.ValidationError(u"%s is not valid SHA value." % key)
-        return sha_value
-
-    def _validate_sha1_by_key(self, key):
-        sha_value = self.cleaned_data[key]
-        return self._validate_sha1(sha_value, key)
-
-    def _validate_filled_sha1_by_key(self, key):
-        value = self.cleaned_data[key]
-        # Fill with null, to match the full SHA1 hexdigest length.
-        temp_value = value.ljust(crypt.HASH_LEN, "0")
-        self._validate_sha1(temp_value, key)
-        return value
-
-    def clean_sha_a(self):
-        return self._validate_sha1_by_key("sha_a")
-    def clean_cnonce(self):
-        return self._validate_sha1_by_key("cnonce")
-
-    def clean_sha_b(self):
-        """
-        The sha_b value is only a part of a SHA1 hexdigest. So we need to add
-        some characers to use the crypt.validate_sha_value() method.
-        """
-        return self._validate_filled_sha1_by_key("sha_b")
+# PBKDF2_BYTE_LENGTH*2 + "$" + PBKDF2_BYTE_LENGTH + "$" + CLIENT_NONCE_LENGTH
+# or:
+# PBKDF2_HEX_LENGTH + "$" + PBKDF2_HALF_HEX_LENGTH + "$" + CLIENT_NONCE_LENGTH
+CLIENT_DATA_LEN = crypt.PBKDF2_HEX_LENGTH + crypt.PBKDF2_HALF_HEX_LENGTH + app_settings.CLIENT_NONCE_LENGTH + 2
 
 
-class ShaLoginForm(Sha1BaseForm, UsernameForm):
+class HashValidator(object):
+    def __init__(self, length):
+        self.length = length
+        self.regexp = re.compile(r"^[a-f0-9]{%i}$" % length)
+
+    def validate(self, value):
+        if len(value)!=self.length:
+            raise ValidationError("length error")
+
+        if not self.regexp.match(value):
+            raise ValidationError("regexp error")
+
+PBKDF2_HEX_Validator = HashValidator(length=crypt.PBKDF2_HEX_LENGTH)
+PBKDF2_HALF_HEX_Validator = HashValidator(length=crypt.PBKDF2_HALF_HEX_LENGTH)
+CLIENT_NONCE_HEX_Validator = HashValidator(length=app_settings.CLIENT_NONCE_LENGTH)
+
+
+class SecureLoginForm(AuthenticationForm, UsernameForm):
     """
-    Form for the SHA1-JavaScript-Login.
-
-    inherited form Sha1BaseForm() this form fields:
-        sha_a
-        sha_b
-        cnonce
-    inherited form UsernameForm() this form fields:
-        username
+    data from the client as password:
+        send pbkdf2_hash1, second-pbkdf2-part and cnonce to the server
     """
-    pass
-
-
-HASH_LEN = (crypt.HASH_LEN * 2) + crypt.HALF_HASH_LEN + 2 # sha_a + "$" + sha_b +"$" + cnonce
-
-class SecureLoginForm(AuthenticationForm):
     password=forms.CharField(
-        min_length=HASH_LEN,
-        max_length=HASH_LEN
+        min_length=CLIENT_DATA_LEN,
+        max_length=CLIENT_DATA_LEN,
     )
-
-    def _validate_sha1(self, sha_value, key):
-        if crypt.validate_sha_value(sha_value) != True:
-            self._raise_validate_error("%s is not valid SHA value." % key)
-        return sha_value
 
     def _raise_validate_error(self, msg):
         log.debug(msg)
@@ -130,10 +110,11 @@ class SecureLoginForm(AuthenticationForm):
 
         username = self.cleaned_data.get('username')
         if not username:
+            log.error("No Username?!?")
             return
 
         try:
-            sha_a, sha_b, cnonce = self.cleaned_data.get('password')
+            pbkdf2_hash, second_pbkdf2_part, cnonce = self.cleaned_data.get('password')
         except TypeError as err:
             self._raise_validate_error("Wrong password data: %s" % err)
 
@@ -149,17 +130,25 @@ class SecureLoginForm(AuthenticationForm):
         CNONCE_CACHE[cnonce] = None
 
         try:
-            challenge = self.request.session.pop("challenge")
+            server_challenge = self.request.session.pop("server_challenge")
         except KeyError as err:
-            self._raise_validate_error("Can't get 'challenge' from session: %s" % err)
+            self._raise_validate_error("Can't get 'server_challenge' from session: %s" % err)
         else:
-            log.debug("Challenge from session: %r", challenge)
+            log.debug("Challenge from session: %r", server_challenge)
+
+        user = self.get_user()
+        if not user:
+            log.error("No User?!?")
+            return
+
+        user_profile = UserProfile.objects.get_user_profile(user)
 
         kwargs = {
             "username":username,
-            "challenge":challenge,
-            "sha_a":sha_a,
-            "sha_b":sha_b,
+            "encrypted_part": user_profile.encrypted_part,
+            "server_challenge":server_challenge,
+            "pbkdf2_hash":pbkdf2_hash,
+            "second_pbkdf2_part":second_pbkdf2_part,
             "cnonce":cnonce,
         }
         log.info("Call authenticate with: %s", repr(kwargs))
@@ -183,33 +172,31 @@ class SecureLoginForm(AuthenticationForm):
                 )
             )
 
-        sha_a, sha_b, cnonce = password.split("$")
-        self._validate_sha1(sha_a, "sha_a")
+        pbkdf2_hash, second_pbkdf2_part, cnonce = password.split("$")
 
-        # Fill with null, to match the full SHA1 hexdigest length:
-        self._validate_sha1(sha_b.ljust(crypt.HASH_LEN, "0"), "sha_b")
-
-        self._validate_sha1(cnonce, "cnonce")
+        PBKDF2_HEX_Validator.validate(pbkdf2_hash)
+        PBKDF2_HALF_HEX_Validator.validate(second_pbkdf2_part)
+        CLIENT_NONCE_HEX_Validator.validate(cnonce)
 
         log.debug("Password data is valid.")
-        return (sha_a, sha_b, cnonce)
+        return (pbkdf2_hash, second_pbkdf2_part, cnonce)
 
 
-class JSPasswordChangeForm(Sha1BaseForm):
-    """
-    Form for changing the password with Client side JS encryption.
-
-    inherited form Sha1BaseForm() this form fields:
-        sha_a
-        sha_b
-        cnonce
-    for pre-verification with old password "JS-SHA1" values
-    """
-    # new password as salted SHA1 hash:
-    salt = forms.CharField(min_length=crypt.SALT_LEN, max_length=crypt.SALT_LEN) # length see: hashers.SHA1PasswordHasher() and django.utils.crypto.get_random_string()
-    sha1hash = forms.CharField(min_length=crypt.HASH_LEN, max_length=crypt.HASH_LEN)
-    def clean_salt(self):
-        return self._validate_filled_sha1_by_key("salt")
-    def clean_sha1(self):
-        return self._validate_sha1_by_key("sha1hash")
+# class JSPasswordChangeForm(Sha1BaseForm):
+#     """
+#     Form for changing the password with Client side JS encryption.
+#
+#     inherited form Sha1BaseForm() this form fields:
+#         pbkdf2_hash
+#         second_pbkdf2_part
+#         cnonce
+#     for pre-verification with old password "JS-SHA1" values
+#     """
+#     # new password as salted SHA1 hash:
+#     salt = forms.CharField(min_length=crypt.SALT_LEN, max_length=crypt.SALT_LEN) # length see: hashers.SHA1PasswordHasher() and django.utils.crypto.get_random_string()
+#     sha1hash = forms.CharField(min_length=crypt.CLIENT_DATA_LEN, max_length=crypt.CLIENT_DATA_LEN)
+#     def clean_salt(self):
+#         return self._validate_filled_sha1_by_key("salt")
+#     def clean_sha1(self):
+#         return self._validate_sha1_by_key("sha1hash")
 

@@ -8,23 +8,14 @@
     :license: GNU GPL v3 or above, see LICENSE for more details
 */
 
-
-try {
-    jQuery(document);
-    log("jQuery loaded, ok.");
-} catch (e) {
-    alert("Error, jQuery JS not loaded!\n Original error was:" + e);
-}
-
 // helper function for console logging
 // set debug to true to enable debug logging
 function log() {
-    if (typeof debug === 'undefined') {
-        // debug variable is undefined -> no debugging.
-        debug=false;
+    if (typeof DEBUG === 'undefined') {
+        window.console.log("DEBUG variable is undefined -> no debugging.");
+        DEBUG=false;
     }
-    if (debug && window.console && window.console.log) {
-
+    if (DEBUG && window.console && window.console.log) {
         try {
             window.console.log(Array.prototype.join.call(arguments,''));
         } catch (e) {
@@ -34,6 +25,13 @@ function log() {
     }
 }
 log("JS logging initialized");
+
+try {
+    jQuery(document);
+    log("jQuery loaded, ok.");
+} catch (e) {
+    alert("Error, jQuery JS not loaded!\n Original error was:" + e);
+}
 
 
 function replace_complete_page(html) {
@@ -95,8 +93,17 @@ function low_level_error(msg) {
     return false;
 }
 
+function assert_global_variable_exists(name) {
+    if (name in window) {
+        log("global variable " + name + " exists.")
+        return eval(name)
+    } else {
+        throw "global variable '"+name+"' doesn't exists!";
+    }
+}
 
-function assert_is_number(value, name) {
+function assert_is_number(name) {
+    value = assert_global_variable_exists(name);
     if(value=="") {
         throw "Variable '"+name+"' from server is a empty string!";
     }
@@ -104,6 +111,29 @@ function assert_is_number(value, name) {
         throw "Variable '"+name+"' from server is not a number! It's: ["+value+"]";
     }
     log("assert_is_number for '"+name+"', ok (value="+value+")");
+}
+
+function assert_length(value, must_length, name) {
+    if (value.length != must_length) {
+        throw "Error: '"+name+"' has wrong length:" + value.length + "!=" + must_length;
+    } else {
+        log("assert length of '"+name+"', ok (length == "+value.length+")");
+    }
+}
+
+function assert_variable_length(name, must_length) {
+    value = assert_global_variable_exists(name);
+    assert_length(value, must_length, name);
+}
+
+function assert_min_length(value, min_length, name) {
+    if (value.length < min_length) {
+        var msg="Error: '"+name+"' is too short. It must be at least "+min_length+" characters long.";
+        log(msg);
+        throw msg;
+    } else {
+        log("assert min length of '"+name+"', ok (length == "+value.length+" < "+min_length+")");
+    }
 }
 
 
@@ -168,47 +198,6 @@ function init_ajax_csrf() {
 
 //-----------------------------------------------------------------------------
 
-function assert_challenge() {
-    // Check variable that set in sha_form.html via template variables
-    if (typeof challenge === 'undefined') {
-        throw "Error: 'challenge' not defined!";
-    }
-}
-
-
-function assert_length(value, must_length, name) {
-    if (value.length != must_length) {
-        throw "Error: '"+name+"' has wrong length:" + value.length + "!=" + must_length;
-    } else {
-        log("assert length of '"+name+"', ok (length == "+value.length+")");
-    }
-}
-
-function assert_min_length(value, min_length, name) {
-    if (value.length < min_length) {
-        var msg="Error: '"+name+"' is too short. It must be at least "+min_length+" characters long.";
-        log(msg);
-        throw msg;
-    } else {
-        log("assert min length of '"+name+"', ok (length == "+value.length+" < "+min_length+")");
-    }    
-}
-
-function assert_salt_length(value) {
-    var salt_length = value.length 
-    if (salt_length == OLD_SALT_LEN) {
-        log("WARNING: Salt '"+value+"' has old "+salt_length+" length.");
-        return
-    }
-    if (salt_length != SALT_LEN) {
-        throw "Error: Salt '"+value+"' has wrong length:" + salt_length;
-    } else {
-        log("assert length of salt '"+value+"', ok (length == "+salt_length+")");
-    }
-}
-
-//-----------------------------------------------------------------------------
-
 function generate_nonce(start_value) {
     // Generate new 'cnonce' a client side random value
     var cnonce = start_value;
@@ -219,7 +208,9 @@ function generate_nonce(start_value) {
     //cnonce = "Always the same, test.";
     log("generated cnonce from:" + cnonce);
     cnonce = sha_hexdigest(cnonce);
-    log("SHA cnonce:" + cnonce);
+    log("SHA cnonce....: '" + cnonce + "'");
+    cnonce = cnonce.substr(0, NONCE_LENGTH);
+    log("cnonce cut to.: '" + cnonce + "'");
     return cnonce
 }
 
@@ -227,48 +218,84 @@ function sha_hexdigest(txt) {
     /*
         build the SHA hexdigest from the given string. Return false is anything is wrong.
     */
-//    log("sha_hexdigest('" + txt + "'):");
-    SHA_hexdigest = hex_sha1(txt); // from: sha.js
-    assert_length(SHA_hexdigest, HASH_LEN, "SHA_hexdigest");
-//    log(SHA_hexdigest);
+    log("sha_hexdigest('" + txt + "'):");
+    var SHA_hexdigest = hex_sha1(txt); // from: sha.js
+    assert_length(SHA_hexdigest, 40, "SHA_hexdigest");
+    log(SHA_hexdigest);
     return SHA_hexdigest;
 }
 
+function pbkdf2(txt, salt, callback, iterations=ITERATIONS, bytes=PBKDF2_BYTE_LENGTH) {
+    var mypbkdf2 = new PBKDF2(password=txt, salt=salt, iterations=iterations, bytes=bytes);
+    mypbkdf2.deriveKey(
+        function(percent_done) {
+            var msg="Computed " + Math.floor(percent_done) + "%";
+//            log(msg);
+            $(ID_PASSWORD).val(msg);
+        },
+        function(key) {
+            var msg="The derived " + (bytes*8) + "-bit key is: " + key;
+            log(msg);
+            $(ID_PASSWORD).val(key);
+            callback(key);
+        }
+    );
+}
 
-function calculate_hashes(password, salt, challenge) {
+function test_pbkdf2_js() {
+    log("Check pbkdf2.js...");
+
+    if (typeof PBKDF2 === 'undefined') {
+        throw "Error:\npbkdf2.js not loaded.\n(PBKDF2 not defined)";
+    }
+
+    var old_value = $(ID_PASSWORD).val();
+    pbkdf2(
+        txt=test_string,
+        salt=test_string,
+        callback=function(key) {
+            var should_be = '4460365dc7df037dbdd851f1ffed7130';
+            if (key == should_be) {
+                log("Check PBKDF2 function is ok.");
+                $(ID_PASSWORD).val(old_value);
+            } else {
+                msg = "ERROR: pbkdf2.js test failed!\n'" + key + "' != '" + should_be + "'"
+                alert(msg);
+                throw msg;
+            }
+        },
+        iterations=5, bytes=16
+    );
+}
+
+
+function calculate_hashes(password, salt, challenge, callback) {
     log("calculate_hashes with salt '"+salt+"' (length:"+salt.length+") and challenge '"+challenge+"' (length:"+challenge.length+")");
     
-    assert_salt_length(salt);
-    assert_length(challenge, HASH_LEN, "challenge");
-    
-    log("shapass = sha_hexdigest(salt + password):");
-    var shapass = sha_hexdigest(salt + password);
-    if (shapass.length!=HASH_LEN) {
-        var msg = gettext("Internal error: hex_sha salt error! shapass length:") + shapass.length;
-        log(msg);
-        throw msg;
-    }
+    assert_length(salt, SALT_LENGTH, "salt");
+    assert_length(challenge, CHALLENGE_LENGTH, "challenge");
 
-    // split SHA-Passwort
-    sha_a = shapass.substr(0, HASH_LEN/2); // sha_a never send to the server
-    sha_b = shapass.substr(HASH_LEN/2, HASH_LEN/2);
-    log("substr: sha_a:|"+sha_a+"| sha_b:|"+sha_b+"|");   
+    log('pbkdf2_temp_hash = pbkdf2("Plain Password", init_pass_salt):');
 
-    var cnonce = generate_nonce("django secure JS login");
+    var old_value = $(ID_PASSWORD).val();
+    pbkdf2( password, salt, function(pbkdf2_temp_hash) {
+        log("pbkdf2_temp_hash = " + pbkdf2_temp_hash);
 
-    log("Build "+LOOP_COUNT+"x SHA1 from: sha_a + i + challenge + cnonce");
-    for (i=0; i<LOOP_COUNT; i++)
-    {
-        log("sha1 round: " + i);
-        sha_a = sha_hexdigest(sha_a + i + challenge + cnonce);
-    }
+        // split pbkdf2_temp_hash
+        first_pbkdf2_part = pbkdf2_temp_hash.substr(0, PBKDF2_BYTE_LENGTH);
+        second_pbkdf2_part = pbkdf2_temp_hash.substr(PBKDF2_BYTE_LENGTH, PBKDF2_BYTE_LENGTH);
+        log("split: |"+first_pbkdf2_part+"|"+second_pbkdf2_part+"|");
 
-    log("sha_a...: " + sha_a);
-    log("sha_b...: " + sha_b);
-    log("cnonce..: " + cnonce);
-    result = sha_a + "$" + sha_b +"$" + cnonce;
-    log("Result: " + result);
-    return result
+        var cnonce = generate_nonce("django secure JS login");
+        assert_length(cnonce, NONCE_LENGTH, "cnonce");
+        pbkdf2(first_pbkdf2_part, cnonce + challenge, function(pbkdf2_hash) {
+            log("pbkdf2_hash = " + pbkdf2_hash);
+            var result = pbkdf2_hash + "$" + second_pbkdf2_part + "$" + cnonce;
+            log("result = " + result);
+            $(ID_PASSWORD).val(result);
+            return callback();
+        });
+    });
 }
 
 function calculate_salted_sha1(password) {
@@ -302,11 +329,14 @@ function calculate_salted_sha1(password) {
 
 //-----------------------------------------------------------------------------
 
+var digits="0123456789";
+var ascii_lowercase = "abcdefghijklmnopqrstuvwxyz".toLowerCase();
+var ascii_uppercase = ascii_lowercase.toUpperCase();
+var test_string = " " + digits + ascii_lowercase + ascii_uppercase;
+
 
 function test_sha_js() {
-    // Check the sha1 functions from external js files
-    
-    log("Check the sha1 functions...");
+    log("Check sha.js...");
     
     if (typeof hex_sha1 === 'undefined') {
         throw "Error:\nsha.js not loaded.\n(hex_sha1 not defined)";
@@ -315,11 +345,7 @@ function test_sha_js() {
     if (typeof sha_hexdigest === 'undefined') {
         throw "Error:\nWrong secure_js_login.js loaded! Please update your static files\n(sha_hexdigest not defined)";
     }
-    
-    var digits="0123456789";
-    var ascii_lowercase = "abcdefghijklmnopqrstuvwxyz".toLowerCase();
-    var ascii_uppercase = ascii_lowercase.toUpperCase();
-    var test_string = " " + digits + ascii_lowercase + ascii_uppercase;
+
     var test_sha = sha_hexdigest(test_string);
     var should_be = "5b415e2e5421a30b798c9b46638fcd7b58ff4d53".toLowerCase();
     if (test_sha != should_be) {
@@ -331,16 +357,17 @@ function test_sha_js() {
 
 function precheck_sha_login() {
     init_ajax_csrf() // Cross Site Request Forgery protection
-    assert_challenge() // Check variable that set in sha_form.html by template variables
-        
-    assert_is_number(OLD_SALT_LEN, "OLD_SALT_LEN");
-    assert_is_number(SALT_LEN, "SALT_LEN");
-    assert_is_number(HASH_LEN, "HASH_LEN");
-    assert_is_number(LOOP_COUNT, "LOOP_COUNT");
-    
-    assert_length(challenge, HASH_LEN, "challenge");
-    
+
+    assert_is_number("CHALLENGE_LENGTH");
+    assert_is_number("NONCE_LENGTH");
+    assert_is_number("SALT_LENGTH");
+    assert_is_number("PBKDF2_BYTE_LENGTH");
+    assert_is_number("ITERATIONS");
+
+    assert_variable_length("challenge", CHALLENGE_LENGTH);
+
     test_sha_js(); // Check the sha1 functions from external js files
+    test_pbkdf2_js();
 }
 
 
@@ -349,10 +376,10 @@ function precheck_sha_login() {
 
 function init_secure_login() {
     /*
-        SHA-JS-Login
-        init from auth/sha_form.html
+        Secure-JS-Login
+        init from /secure_js_login/sha_form.html
     */
-    log("shared_sha_login.js - init_secure_login()");
+    log("secure_js_login.js - init_secure_login()");
     
     try {
         precheck_sha_login()
@@ -361,9 +388,7 @@ function init_secure_login() {
         return false;
     }
 
-    // XXX: remove:
-    $(ID_USERNAME).val("test");
-    $(ID_PASSWORD).val("12345678");
+    $("form").slideDown();
 
     $(ID_USERNAME).change(function() {
         // if the username change, we must get a new salt from server.
@@ -373,137 +398,90 @@ function init_secure_login() {
         return false;
     });
 
+    var submit_by="user";
+    var salt=""; // will be set via ajax
     $(ID_FORM).submit(function() {
-        log("check login form.");
+        log("check login form (submit_by='"+submit_by+"')");
         try {
-            var username = $(ID_USERNAME).val();
-            log("username:" + username);
+            if (submit_by=="callback") {
+                log("Send form...");
+                return true;
+            } else if (submit_by=="user") {
+                var username = $(ID_USERNAME).val();
+                log("username:" + username);
 
-            if (username.length<2) {
-                log("username to short, current len:" + username.length);
-                page_msg_error(gettext("Username is too short."));
-                $(ID_USERNAME).focus();
-                return false;
-            }
+                if (username.length<2) {
+                    log("username to short, current len:" + username.length);
+                    page_msg_error(gettext("Username is too short."));
+                    $(ID_USERNAME).focus();
+                    return false;
+                }
 
-            var password = $(ID_PASSWORD).val();
-            log("password:" + password);
+                var password = $(ID_PASSWORD).val();
+                log("password:" + password);
 
-            try {
-                assert_min_length(password, 8, "password");
-            } catch (e) {
-                log(e);
-                var msg=gettext("Password is too short. It must be at least eight characters long.");
-                alert(msg);
-//                page_msg_error(msg);
-                $(ID_PASSWORD).focus();
-                return false;
-            }
-            
-            try {
-                assert_only_ascii(password)
-            } catch (e) {
-                log(e);
-                var msg=gettext("Only ASCII letters in password allowed!");
-                alert(msg);
-//                page_msg_error(msg);
-                $(ID_PASSWORD).focus();
-                return false;
-            }
+                try {
+                    assert_min_length(password, 8, "password");
+                } catch (e) {
+                    log(e);
+                    var msg=gettext("Password is too short. It must be at least eight characters long.");
+                    alert(msg);
+    //                page_msg_error(msg);
+                    $(ID_PASSWORD).focus();
+                    return false;
+                }
 
-            if (salt=="") {
-                $(ID_PASSWORD).val(gettext("Get the hash salt value from server..."));
+                try {
+                    assert_only_ascii(password)
+                } catch (e) {
+                    log(e);
+                    var msg=gettext("Only ASCII letters in password allowed!");
+                    alert(msg);
+    //                page_msg_error(msg);
+                    $(ID_PASSWORD).focus();
+                    return false;
+                }
 
-                var post_data = {
-                    "username": username
-                };
-                log("get user salt from " + get_salt_url + " - send POST:" + $.param(post_data));
-                response = $.ajax({
-                    async: false,
-                    type: "POST",
-                    url: get_salt_url,
-                    data: post_data,
-                    dataType: "text",
-                    success: function(data, textStatus, XMLHttpRequest){
-                        log("get salt value via ajax: " + textStatus);
-                    },
-                    error: ajax_error_handler
+                if (salt=="") {
+                    $(ID_PASSWORD).val(gettext("Get the hash salt value from server..."));
+
+                    var post_data = {
+                        "username": username
+                    };
+                    log("get user salt from " + get_salt_url + " - send POST:" + $.param(post_data));
+                    response = $.ajax({
+                        async: false,
+                        type: "POST",
+                        url: get_salt_url,
+                        data: post_data,
+                        dataType: "text",
+                        success: function(data, textStatus, XMLHttpRequest){
+                            log("get salt value via ajax: " + textStatus);
+                        },
+                        error: ajax_error_handler
+                    });
+                    salt = response.responseText;
+                    log("salt value from server:" + salt);
+                } else {
+                    log("use existing salt:" + salt);
+                }
+                try {
+                    assert_length(salt, SALT_LENGTH, "salt");
+                } catch (e) {
+                    log(e);
+                    alert("Internal error: Wrong salt length:" + salt.length + "!=" + SALT_LENGTH);
+                    return false;
+                }
+
+                $(ID_PASSWORD).val(gettext("Calculate the hashes..."));
+                calculate_hashes(password, salt, challenge, callback=function(){
+                    submit_by="callback";
+                    $("form input:submit").click();
                 });
-                salt = response.responseText;
-                log("salt value from server:" + salt);
+                return false
             } else {
-                log("use existing salt:" + salt);
+                throw "submit_by value: '"+submit_by+"' unknown?!?"
             }
-            try {
-                assert_salt_length(salt);
-            } catch (e) {
-                log(e);
-                alert("Internal error: Wrong salt length:" + salt.length + "!=" + SALT_LEN);
-                return false;
-            }
-
-            $(ID_PASSWORD).val(gettext("Calculate the hashes..."));
-            try {
-                var result=calculate_hashes(password, salt, challenge);
-            } catch (e) {
-                alert(e);
-                return false;
-            }
-            log("Set password to: " + result);
-            $(ID_PASSWORD).val(result);
-            log("Send form.");
-            return true
-
-//            var post_data = {
-//                "username": username,
-//                "password": result
-//            }
-//            log("auth user, send POST:" + $.param(post_data));
-//            page_msg_info(gettext("Send SHA-1 values to the server..."));
-//            response = $.ajax({
-//                async: false,
-//                type: "POST",
-//                url: secure_auth_url,
-//                data: post_data,
-//                dataType: "text",
-//                success: function(data, textStatus, XMLHttpRequest){
-//                    log("post request via ajax: " + textStatus);
-//                },
-//                error: ajax_error_handler
-//            });
-//            msg = response.responseText;
-//            log("responseText:" + msg);
-//            if (msg=="OK") {
-//                 // login was ok
-//                 page_msg_success(gettext("Login ok, loading..."));
-//                 $(ID_PASSWORD).remove();
-//                 window.location.href = next_url;
-//                 return false;
-//            }
-//            if (msg.indexOf("<"+"head>") != -1) { // 'mask' tag, so it's not found by pylucid_js_tools.js / replace_page_content ;)
-//                log("It seems we get a complete html page: replace the complete page");
-//                $("html").html(msg);
-////                replace_complete_page(msg); // from pylucid_js_tools.js
-//                return false;
-//            }
-//            if (msg.indexOf(";") == -1) {
-//                log("Wrong server reponse! No ';' found!");
-//                return false;
-//            }
-//
-//            // we get a new challenge and a error message from server
-//            challenge = msg.substr(0, msg.indexOf(";"));
-//            msg = msg.substr(msg.indexOf(";")+1);
-//
-//            log("new challenge:" + challenge);
-//            page_msg_error(msg);
-//
-//            $("#password_block").css("display", "block").slideDown();
-//            $("#sha_values_block").slideUp("slow");
-//            $("#id_sha_a").val("");
-//            $("#id_sha_b").val("");
-//            $("#id_cnonce").val("");
-//            $(ID_PASSWORD).focus();
         } catch (e) {
             log("Error:" + e);
             alert("internal javascript error:" + e);
@@ -629,7 +607,7 @@ function init_JS_password_change() {
         change user password
         init from auth/JS_password_change.html
     */
-    log("shared_sha_login.js - init_JS_password_change()");
+    log("secure_js_login.js - init_JS_password_change()");
     
     try {
         precheck_sha_login();

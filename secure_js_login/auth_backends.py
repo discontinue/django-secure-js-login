@@ -67,13 +67,12 @@ class SecureLoginAuthBackend(ModelBackend):
                 raise
             return
 
-        kwargs["sha_checksum"] = user_profile.sha_login_checksum
-        kwargs["loop_count"] = app_settings.LOOP_COUNT
+        kwargs["secure_login_checksum"] = user_profile.secure_login_checksum
 
         log.debug("Check with: %r" % repr(kwargs))
 
         try:
-            check = crypt.check_js_sha_checksum(**kwargs)
+            check = crypt.check_secure_js_login(**kwargs)
         except crypt.CryptError as err:
             # Wrong password
             log.error("User %r check_js_sha_checksum error: %s" % (user, err))

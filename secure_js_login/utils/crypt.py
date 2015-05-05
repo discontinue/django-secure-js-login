@@ -58,10 +58,6 @@ assert PBKDF2_HALF_HEX_LENGTH == app_settings.PBKDF2_BYTE_LENGTH
 class CryptError(Exception):
     pass
 
-#______________________________________________________________________________
-
-SHA1_RE = re.compile(r'[a-f0-9]{40}$')
-
 
 def hash_hexdigest(txt):
     assert isinstance(txt, six.text_type), "txt: %s is not text type!" % repr(txt)
@@ -102,12 +98,12 @@ class SeedGenerator(object):
 seed_generator = SeedGenerator()
 
 
-def get_pseudo_salt(*args):
+def get_pseudo_salt(length, *args):
     """
     generate a pseudo salt (used, if user is wrong)
     """
     temp = "".join([arg for arg in args])
-    return hash_hexdigest(temp)[:SALT_LEN]
+    return hash_hexdigest(temp)[:length]
 
 
 def hexlify_pbkdf2(password, salt, iterations, length, digest=hashlib.sha1):
@@ -153,6 +149,11 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
     True
     >>> PBKDF2SHA1Hasher(iterations=1000, length=24).must_update(encoded=hash)
     True
+
+    Used in secure_js_login.js to check the PBKDF2 JavaScript implementation:
+    >>> test_string=" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    >>> PBKDF2SHA1Hasher(iterations=5, length=16).get_hash(password=test_string, salt=test_string)
+    '4460365dc7df037dbdd851f1ffed7130'
     """
     def __init__(self, iterations, length):
         self.iterations = iterations
@@ -166,6 +167,9 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
 
         hash = hexlify_pbkdf2(password, salt, iterations=self.iterations, length=self.length, digest=self.digest)
         return "%s$%d$%s$%s" % (self.algorithm, self.iterations, salt, hash)
+
+    def get_hash(self, password, salt):
+        return self.encode(password, salt).rsplit("$",1)[1]
 
     def get_salt_hash(self, txt):
         salt=seed_generator(length=app_settings.PBKDF2_SALT_LENGTH)
@@ -352,9 +356,9 @@ def salt_hash_from_plaintext(password):
     >>> data
     'pbkdf2_sha1$10$DEBUG_789012$9345c4d9ebcdae15931fefc11199022da569673b81d54d768ec449b14c3d5f1c$CQVQBlNbAAAAVQhaBwtQBABRV1UBA1AIU10GUlQLUVU='
     """
-    salt = seed_generator(app_settings.PBKDF2_SALT_LENGTH)
+    init_pbkdf2_salt = seed_generator(app_settings.PBKDF2_SALT_LENGTH)
     pbkdf2_hash = hexlify_pbkdf2(
-        password, salt,
+        password, init_pbkdf2_salt,
         iterations=app_settings.ITERATIONS1,
         length=app_settings.PBKDF2_BYTE_LENGTH
     )
@@ -364,7 +368,30 @@ def salt_hash_from_plaintext(password):
 
     encrypted_part = xor_crypt.encrypt(first_pbkdf2_part, key=second_pbkdf2_part)
 
-    return salt, encrypted_part
+    return init_pbkdf2_salt, encrypted_part
+
+
+def check_secure_js_login(encrypted_part, server_challenge, pbkdf2_hash, second_pbkdf2_part, cnonce):
+    """
+    first_pbkdf2_part = xor_decrypt(encrypted_part, key=second_pbkdf2_part)
+    test_hash = pbkdf2(first_pbkdf2_part, key=cnonce + server_challenge)
+    compare test_hash with transmitted pbkdf2_hash
+    """
+    log.debug("check_secure_js_login()")
+    first_pbkdf2_part = xor_crypt.decrypt(encrypted_part, key=second_pbkdf2_part)
+    test_hash = hexlify_pbkdf2(
+        first_pbkdf2_part,
+        cnonce + server_challenge,
+        iterations=app_settings.ITERATIONS2,
+        length=app_settings.PBKDF2_BYTE_LENGTH
+    )
+    if test_hash==pbkdf2_hash:
+        log.info("secure js login check is ok!")
+        return True
+
+    log.error("secure js login check failed!")
+
+    return False
 
 
 if __name__ == "__main__":

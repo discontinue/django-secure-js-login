@@ -36,12 +36,10 @@ CNONCE_CACHE = {}
 
 
 class UserProfileManager(models.Manager):
-    def get_user_profile(self, username):
-        UserModel = get_user_model()
-        user = UserModel._default_manager.get_by_natural_key(username)
+    def get_user_profile(self, user):
         user_profile = self.get_queryset().get(user=user)
         log.debug("User profile: %r for user %r" % (user_profile, user))
-        return (user, user_profile)
+        return user_profile
 
 
 
@@ -63,21 +61,27 @@ class UserProfile(UpdateInfoBaseModel):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL)
 
-    secure_login_checksum = models.CharField(max_length=256,
-        help_text="XOR encrypted PBKDF2 salted checksum"
-    )
-    secure_login_salt = models.CharField(max_length=256,
+    init_pbkdf2_salt = models.CharField(max_length=256,
         help_text="initial salt for PBKDF2 password hash"
+    )
+    encrypted_part = models.CharField(max_length=256,
+        help_text="XOR encrypted PBKDF2 salted checksum"
     )
 
     def set_secure_login_data(self, password):
         """
         Create a XOR encrypted PBKDF2 salted checksum from a plaintext password.
         """
-        salt, checksum = crypt.salt_hash_from_plaintext(password)
-        self.secure_login_salt = salt
-        self.secure_login_checksum = checksum
+        init_pbkdf2_salt, encrypted_part = crypt.salt_hash_from_plaintext(password)
+        log.debug("set init_pbkdf2_salt=%r and encrypted_part=%r", init_pbkdf2_salt, encrypted_part)
+        self.init_pbkdf2_salt = init_pbkdf2_salt
+        self.encrypted_part = encrypted_part
         log.info("Secure login data saved for user '%s'.", self.user)
+
+    # def save(self, *args, **kwargs):
+    #     super(UserProfile, self).save(*args, **kwargs)
+    #     assert len(self.init_pbkdf2_salt)==app_settings.PBKDF2_SALT_LENGTH
+    #     assert len(self.encrypted_part)==crypt.PBKDF2_HALF_HEX_LENGTH
 
     def __str__(self):
         return "user %r" % self.user.username

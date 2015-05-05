@@ -29,7 +29,7 @@ from secure_js_login.preference_forms import AuthPreferencesForm
 
 from secure_js_login.utils import crypt
 
-from secure_js_login.views import _get_challenge, \
+from secure_js_login.views import _get_server_challenge, \
     _get_loop_count
 
 
@@ -175,7 +175,7 @@ def JS_password_change(request):
         sha_login_salt = user_profile.sha_login_salt
 
         # create a new challenge and add it to session
-        challenge = _get_challenge(request)
+        challenge = _get_server_challenge(request)
 
         context.update({
             "challenge": challenge,

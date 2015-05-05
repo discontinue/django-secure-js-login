@@ -2,28 +2,40 @@
 {% load i18n static %}
 
 {% block extrahead %}
+<style>
+form {
+    /* acticated via JavaScript */
+    display:none;
+}
+</style>
 <script type="text/javascript">
-var challenge="{{ challenge }}"; {# changed via ajax, after wrong login #}
-var next_url="{{ next_url }}";
-</script>
-<script type="text/javascript" src="{% static 'admin/js/jquery.min.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
-<script type="text/javascript" src="{% url 'django.views.i18n.javascript_catalog' packages='auth' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
-<script type="text/javascript" src="{% static 'secure_js_login/sha.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
-<script type="text/javascript" src="{% static 'secure_js_login/secure_js_login.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
-<script type="text/javascript">
-var debug={{ debug }};
-var OLD_SALT_LEN=parseInt("{{ old_salt_len }}");
-var SALT_LEN=parseInt("{{ salt_len }}");
-var HASH_LEN=parseInt("{{ hash_len }}");
-var LOOP_COUNT=parseInt("{{ loop_count }}");
-var salt=""; {# get via ajax #}
+var DEBUG={{ DEBUG }};
+var challenge="{{ challenge }}";
+var CHALLENGE_LENGTH={{ CHALLENGE_LENGTH }};
+var NONCE_LENGTH={{ NONCE_LENGTH }};
+var SALT_LENGTH={{ SALT_LENGTH }};
+var PBKDF2_BYTE_LENGTH={{ PBKDF2_BYTE_LENGTH }};
+var ITERATIONS={{ ITERATIONS }};
+var CSRF_COOKIE_NAME="{{ CSRF_COOKIE_NAME }}";
+
 var get_salt_url="{% url 'secure-js-login:get_salt' %}";
 var ID_FORM="#login-form";
 var ID_USERNAME="#id_username";
 var ID_PASSWORD="#id_password";
-var CSRF_COOKIE_NAME="{{ csrf_cookie_name }}";
+</script>
+<script type="text/javascript" src="{% static 'admin/js/jquery.min.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
+<script type="text/javascript" src="{% url 'django.views.i18n.javascript_catalog' packages='auth' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
+<script type="text/javascript" src="{% static 'secure_js_login/sha.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
+<script type="text/javascript" src="{% static 'secure_js_login/pbkdf2.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
+<script type="text/javascript" src="{% static 'secure_js_login/secure_js_login.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
+<script type="text/javascript">
 jQuery(document).ready(function($) {
     init_secure_login();
 });
 </script>
 {% endblock extrahead %}
+
+{% block content %}
+<noscript><h1>Please enable JavaScript!</h1></noscript>
+{{ block.super }}
+{% endblock content %}
