@@ -26,8 +26,60 @@ The detailed procedure explained in: [[https://github.com/jedie/django-secure-js
 
 The procedure works only with Javascript and a AJAX views.
 For getting the login form, the {{{challenge}}} and {{{salt}}} we used AJAX (with jQuery).
-For building the SHA1, we used the [[http://pajhome.org.uk/crypt/md5/sha1.html|SHA1 JavaScript implementation by Paul Johnston]].
 
+
+=== Used JavaScript Implementations
+
+* SHA1 - JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined in FIPS 180-1
+** http://pajhome.org.uk/crypt/md5/sha1.html
+** Implemented by Paul Johnston
+** Distributed under the BSD License
+** Stored under: [[https://github.com/jedie/django-secure-js-login/blob/master/secure_js_login/static/secure_js_login/sha.js|secure_js_login/static/secure_js_login/sha.js]]
+
+* PBKDF2 - JavaScript implementation of Password-Based Key Derivation Function 2 as defined in RFC 2898
+** http://anandam.name/pbkdf2/
+** Implemented by Parvez Anandam
+** Distributed under the BSD license
+** Stored under: [[https://github.com/jedie/django-secure-js-login/blob/master/secure_js_login/static/secure_js_login/pbkdf2.js|secure_js_login/static/secure_js_login/pbkdf2.js]]
+
+== The procedure:
+
+**TODO: Change the current implementation in this way:**
+
+==== Save a new user password: ====
+
+client browser / JavaScript part::
+# user input a password
+# {{{init_pass_salt = SHA1(random data)}}}
+# {{{pbkdf2_hash = pbkdf2("Plain Password", salt=init_pass_salt)}}}
+# Client send **init_pass_salt** and **pbkdf2_hash** to the server
+
+Server part:
+# Server split **pbkdf2_hash** into: **first-pbkdf2-part** and **second-pbkdf2-part**
+# {{{encrypted_part = xor_encrypt(first-pbkdf2-part, key=second-pbkdf2-part)}}}
+# Save only **encrypted_part** and given **init_pass_salt** from client
+
+==== Login - client browser / JavaScript part: ====
+
+# Use request login
+# server send html login form with a random **server_challenge** value
+# User enters his **username** and **password**
+# Ajax Request the **init_pass_salt** from server with the given **username**
+# generate the auth data:
+## {{{pbkdf2_hash = pbkdf2("Plain Password", init_pass_salt)}}}
+## split **pbkdf2_hash** into **first-pbkdf2-part** and **second-pbkdf2-part**
+## {{{cnonce = SHA1(random data)}}}
+## {{{pbkdf2_hash1 = pbkdf2(first-pbkdf2-part, salt=cnonce + server_challenge)}}}
+# send **pbkdf2_hash1**, **second-pbkdf2-part** and **cnonce** to the server
+
+==== validation on the server ====
+
+# client POST data: **pbkdf2_hash1**, **second-pbkdf2-part** and **cnonce**
+# get transmitted **server_challenge** value from session
+# get **encrypted_part** and **salt** from database via given **username**
+# {{{first-pbkdf2-part = xor_decrypt(encrypted_part, key=second-pbkdf2-part)}}}
+# {{{test_hash = pbkdf2(first-pbkdf2-part, key=cnonce + server_challenge)}}}
+# compare **test_hash** with transmitted **pbkdf2_hash1**
 
 == secure?
 

@@ -13,6 +13,14 @@ class TestCrypt(unittest.TestCase):
     #
     # def tearDown(self):
     #     crypt.seed_generator.DEBUG=False
+
+    def test_pbkdf2(self):
+        """
+        Also tested these pbkdf2 values in pbkdf2_test.html !
+        
+        """
+        hash = crypt.pbkdf2(password="not secret", salt="a salt value", iterations=1000, length=32)
+        self.assertEqual(hash, '9bbc7565baa47ce8e9f5ef181ea2a8959bec965d2ab09b7671e6b1920c67685f')
         
     def test_encrypt(self):
         crypt.seed_generator.DEBUG=True # Generate always the same seed for tests

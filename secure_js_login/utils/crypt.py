@@ -31,6 +31,7 @@
 from __future__ import unicode_literals
 
 import base64
+import codecs
 import hashlib
 import logging
 import os
@@ -41,15 +42,12 @@ import time
 import binascii
 
 if __name__ == "__main__":
-    print("Local DocTest...")
-    settings = type('Mock', (object,), {})()
-    settings.SECRET_KEY = "DocTest"
-else:
-    from django.conf import settings
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.test_settings'
+    print("\nUse DJANGO_SETTINGS_MODULE=%r" % os.environ["DJANGO_SETTINGS_MODULE"])
 
-from django.utils import six
+from django.conf import settings
+from django.utils import six, crypto
 from django.utils.encoding import force_bytes, force_text
-
 
 log = logging.getLogger("secure_js_login")
 
@@ -546,6 +544,22 @@ def check_js_sha_checksum(challenge, sha_a, sha_b, sha_checksum, loop_count, cno
 
     log.debug("Hash check failed: %r != %r" % (local_sha_a, sha_a))
     return False
+
+
+def pbkdf2(password, salt, iterations, length):
+    """
+    via pbkdf2_test.html: The derived 128-bit key is: 9bbc7565baa47ce8e9f5ef181ea2a895
+    >>> pbkdf2(password="not secret", salt="a salt value", iterations=1000, length=16)
+    '9bbc7565baa47ce8e9f5ef181ea2a895'
+
+    via pbkdf2_test.html: The derived 256-bit key is: 9bbc7565baa47ce8e9f5ef181ea2a8959bec965d2ab09b7671e6b1920c67685f
+    >>> pbkdf2(password="not secret", salt="a salt value", iterations=1000, length=32)
+    '9bbc7565baa47ce8e9f5ef181ea2a8959bec965d2ab09b7671e6b1920c67685f'
+    """
+    hash = crypto.pbkdf2(password, salt, iterations, dklen=length, digest=hashlib.sha1)
+    hash = binascii.hexlify(hash)
+    hash = six.text_type(hash, "ascii")
+    return hash
 
 
 
