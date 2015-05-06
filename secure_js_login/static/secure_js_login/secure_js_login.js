@@ -115,7 +115,7 @@ function assert_is_number(name) {
 
 function assert_length(value, must_length, name) {
     if (value.length != must_length) {
-        throw "Error: '"+name+"' has wrong length:" + value.length + "!=" + must_length;
+        throw "Error: '"+name+"' has wrong length:" + value.length + "!=" + must_length + " (value:'"+value+"')";
     } else {
         log("assert length of '"+name+"', ok (length == "+value.length+")");
     }
@@ -429,8 +429,11 @@ function init_secure_login() {
                     return false;
                 }
 
+                $(ID_PASSWORD).val("wait...");
+                $(ID_PASSWORD).attr("type", "text");
+
                 if (salt=="") {
-                    $(ID_PASSWORD).val(gettext("Get the hash salt value from server..."));
+                    $(ID_PASSWORD).val(gettext("Get salt from server..."));
 
                     var post_data = {
                         "username": username

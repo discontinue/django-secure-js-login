@@ -18,7 +18,7 @@ from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils.translation import ugettext as _
 from django.forms.forms import NON_FIELD_ERRORS
 from django.contrib.auth import authenticate
@@ -31,7 +31,7 @@ from secure_js_login import settings as app_settings
 log = logging.getLogger("secure_js_login")
 
 
-class WrongUserError(Exception):
+class WrongUserError(ObjectDoesNotExist):
     pass
 
 
@@ -49,9 +49,7 @@ class UsernameForm(forms.Form):
             username = self.cleaned_data["username"]
             try:
                 self.user_cache = get_user_model().objects.get(username=username)
-            except get_user_model().DoesNotExist as err:
-                if settings.DEBUG:
-                    raise
+            except ObjectDoesNotExist as err:
                 raise WrongUserError("User %r doesn't exists!" % username)
 
             if not self.user_cache.is_active:
@@ -97,6 +95,7 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
     password=forms.CharField(
         min_length=CLIENT_DATA_LEN,
         max_length=CLIENT_DATA_LEN,
+        widget=forms.PasswordInput
     )
 
     def _raise_validate_error(self, msg):
@@ -107,6 +106,11 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
 
     def clean(self):
         # log.debug("Form cleaned data: %r", self.cleaned_data)
+
+        server_challenge = self.request.old_server_challenge
+        if not server_challenge:
+            self._raise_validate_error("request.old_server_challenge not set.")
+        log.debug("Challenge from session: %r", server_challenge)
 
         username = self.cleaned_data.get('username')
         if not username:
@@ -129,13 +133,10 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
         CNONCE_CACHE[cnonce] = None
 
         try:
-            server_challenge = self.request.session.pop("server_challenge")
-        except KeyError as err:
-            self._raise_validate_error("Can't get 'server_challenge' from session: %s" % err)
-        else:
-            log.debug("Challenge from session: %r", server_challenge)
+            user, user_profile = self.get_user_and_profile()
+        except ObjectDoesNotExist as err:
+            self._raise_validate_error("Can't get user+profile: %s" % err)
 
-        user, user_profile = self.get_user_and_profile()
         user.previous_login = user.last_login # Save for: secure_js_login.views.display_login_info()
 
         # crypt._simulate_client(
@@ -159,7 +160,7 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
         try:
             user = authenticate(**kwargs)
         except crypt.CryptError as err:
-            self._raise_validate_error("crypt.check_secure_js_login error: %s", err)
+            self._raise_validate_error("crypt.check_secure_js_login error: %s" % err)
 
         if not user:
             self._raise_validate_error("crypt.check_secure_js_login failed!")

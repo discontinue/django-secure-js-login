@@ -174,8 +174,6 @@ def get_salt(request):
         except ObjectDoesNotExist as err:
             msg = "Error getting user + profile: %s" % err
             log.error(msg)
-            if settings.DEBUG:
-                raise
         else:
             send_pseudo_salt=False
     else:
@@ -186,14 +184,10 @@ def get_salt(request):
         if not init_pbkdf2_salt:
             msg="No init_pbkdf2_salt set in user profile!"
             log.error(msg)
-            if settings.DEBUG:
-                raise AssertionError(msg)
             send_pseudo_salt=True
         elif len(init_pbkdf2_salt)!=app_settings.PBKDF2_SALT_LENGTH:
             msg = "Salt for user %r has wrong length: %r" % (request.POST["username"], init_pbkdf2_salt)
             log.error(msg)
-            if settings.DEBUG:
-                raise AssertionError(msg)
             send_pseudo_salt=True
 
     if send_pseudo_salt:
@@ -227,14 +221,32 @@ def secure_js_login(request):
     FIXME:
         * Don't send a inserted password back, if form is not valid
     """
-    if request.method == 'GET':
-        # create a new challenge and add it to session
-        server_challenge = _get_server_challenge(request)
-    elif request.method == 'POST':
-        # log.debug("secure_js_login() POST data:\n%s", pprint.pformat(request.POST))
-        server_challenge = None # Will be get from session in secureLoginForm()
-    else:
-        return HttpResponseBadRequest
+    try:
+        request.old_server_challenge = request.session["server_challenge"]
+        log.debug("Use old server_challenge: %r", request.old_server_challenge)
+    except KeyError:
+        request.old_server_challenge = None
+
+    # create a new challenge and add it to session
+    server_challenge = _get_server_challenge(request)
+
+    # if request.method == 'GET':
+    #     # create a new challenge and add it to session
+    #     server_challenge = _get_server_challenge(request)
+    # elif request.method == 'POST':
+    #     if not "server_challenge" in request.session:
+    #         # Previous login failed and form will send again with error message
+    #         server_challenge = _get_server_challenge(request)
+    #     else:
+    #         server_challenge=None
+    #         # server_challenge = request.session["server_challenge"]
+    #         # log.debug("Use old server_challenge: %r", server_challenge)
+    #
+    # #
+    # #     # log.debug("secure_js_login() POST data:\n%s", pprint.pformat(request.POST))
+    # #     server_challenge = None # Will be get from session in secureLoginForm()
+    # else:
+    #     return HttpResponseBadRequest("Wrong request.method!")
 
     return login(request,
         template_name="secure_js_login/sha_form.html",

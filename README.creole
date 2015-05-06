@@ -2,48 +2,16 @@
 
 JavaScript Challenge-handshake authentication django app.
 
-**Status: Currently it's not ready to use!**
-
 First:
 The JS-SHA1-Login is not a simple //"send username + SHA(password)"//
 It is more a [[http://en.wikipedia.org/wiki/Challenge-handshake_authentication_protocol|Challenge-handshake authentication protocol]]!
 
-
-=== how
-
-Oversimplify procedure:
-
-# client get a //challenge// and a //salt// from the server.
-# user enters his name and a password.
-# JavaScript generate a //SHA1 hash// from password + challenge + salt + nonce
-# client send username + //SHA1 hash// to the server
-
-The plaintext password would be not leave the client.
-The hash that is sent to the server, is not a simple //SHA1(password)//!
-
-The detailed procedure explained in: [[https://github.com/jedie/django-secure-js-login/blob/master/js_sha_login_pseudocode.py|js_sha_login_pseudocode.py - pseudo code]]
-
-The procedure works only with Javascript and a AJAX views.
-For getting the login form, the {{{challenge}}} and {{{salt}}} we used AJAX (with jQuery).
-
-
-=== Used JavaScript Implementations
-
-* SHA1 - JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined in FIPS 180-1
-** http://pajhome.org.uk/crypt/md5/sha1.html
-** Implemented by Paul Johnston
-** Distributed under the BSD License
-** Stored under: [[https://github.com/jedie/django-secure-js-login/blob/master/secure_js_login/static/secure_js_login/sha.js|secure_js_login/static/secure_js_login/sha.js]]
-
-* PBKDF2 - JavaScript implementation of Password-Based Key Derivation Function 2 as defined in RFC 2898
-** http://anandam.name/pbkdf2/
-** Implemented by Parvez Anandam
-** Distributed under the BSD license
-** Stored under: [[https://github.com/jedie/django-secure-js-login/blob/master/secure_js_login/static/secure_js_login/pbkdf2.js|secure_js_login/static/secure_js_login/pbkdf2.js]]
+TODO:
+* code cleanup
+* add unittests for using old challange value again
+* add unittests for using old cnonce value again
 
 == The procedure:
-
-**TODO: Change the current implementation in this way:**
 
 ==== Save a new user password: ====
 
@@ -80,6 +48,7 @@ Server part:
 # {{{test_hash = pbkdf2(first_pbkdf2_part, key=cnonce + server_challenge)}}}
 # compare **test_hash** with transmitted **pbkdf2_hash**
 
+
 == secure?
 
 JS-SHA1 Login is not really secure in comparison to https! e.g. the client can't validate if he really communicate with the server or with a [[http://en.wikipedia.org/wiki/Man-in-the-middle|Man-in-the-middle]]. JS-SHA1-Login does not protect you against an [[http://en.wikipedia.org/wiki/Session_Hijacking|Session Hijacking]]
@@ -107,6 +76,20 @@ The Problem: No Provider offers secured HTTP connection for little money :( We h
 *** Password hash must be saved on the server, without any salt! The hash can be used for login, because: {{{hash = MD5(username:realm:password)}}}
 *** used old MD5 hash
 
+
+=== Used JavaScript Implementations
+
+* SHA1 - JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined in FIPS 180-1
+** http://pajhome.org.uk/crypt/md5/sha1.html
+** Implemented by Paul Johnston
+** Distributed under the BSD License
+** Stored under: [[https://github.com/jedie/django-secure-js-login/blob/master/secure_js_login/static/secure_js_login/sha.js|secure_js_login/static/secure_js_login/sha.js]]
+
+* PBKDF2 - JavaScript implementation of Password-Based Key Derivation Function 2 as defined in RFC 2898
+** http://anandam.name/pbkdf2/
+** Implemented by Parvez Anandam
+** Distributed under the BSD license
+** Stored under: [[https://github.com/jedie/django-secure-js-login/blob/master/secure_js_login/static/secure_js_login/pbkdf2.js|secure_js_login/static/secure_js_login/pbkdf2.js]]
 
 
 === Links
