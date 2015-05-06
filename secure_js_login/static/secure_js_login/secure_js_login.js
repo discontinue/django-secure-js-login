@@ -335,8 +335,8 @@ function test_sha_js() {
     log("Check the sha1 functions is ok.");
 }
 
-
-function precheck_sha_login() {
+var precheck_secure=false;
+function precheck_secure_login() {
     init_ajax_csrf() // Cross Site Request Forgery protection
 
     assert_is_number("CHALLENGE_LENGTH");
@@ -349,6 +349,8 @@ function precheck_sha_login() {
 
     test_sha_js(); // Check the sha1 functions from external js files
     test_pbkdf2_js();
+
+    precheck_secure=true;
 }
 
 
@@ -363,7 +365,7 @@ function init_secure_login() {
     log("secure_js_login.js - init_secure_login()");
     
     try {
-        precheck_sha_login()
+        precheck_secure_login()
     } catch (e) {
         low_level_error(e);
         return false;
@@ -595,7 +597,7 @@ function init_JS_password_change() {
     log("secure_js_login.js - init_JS_password_change()");
     
     try {
-        precheck_sha_login();
+        precheck_secure_login();
         
         // unlike normal login, we have the salt directly, set in template
         assert_salt_length(sha_login_salt)

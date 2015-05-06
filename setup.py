@@ -74,6 +74,13 @@ setup_info = dict(
     include_package_data=True, # include package data under version control
     # test_suite = "runtests.run_tests",
     zip_safe=False,
+    install_requires=[
+        "Django>=1.7,<1.8",
+    ],
+    tests_require=[
+        "selenium", # https://pypi.python.org/pypi/selenium
+        "django-tools",  # https://github.com/jedie/django-tools/
+    ],
     classifiers=[
        'Development Status :: 1 - Planning',
        # 'Development Status :: 2 - Pre-Alpha',
