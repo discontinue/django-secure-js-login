@@ -1,4 +1,6 @@
 
+from __future__ import unicode_literals
+
 import unittest
 
 from secure_js_login.utils import crypt

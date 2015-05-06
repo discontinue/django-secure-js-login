@@ -5,9 +5,9 @@ from secure_js_login.models import UserProfile
 
 
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "createtime", "lastupdatetime", "createby", "lastupdateby")
+    list_display = ("id", "user", "createtime", "lastupdatetime")
     list_display_links = ("id", "user")
-    list_filter = ("user", "createby", "lastupdateby")
+    list_filter = ("user",)
     date_hierarchy = 'lastupdatetime'
     search_fields = ("username",)
 

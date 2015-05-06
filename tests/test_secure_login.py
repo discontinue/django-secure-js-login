@@ -14,6 +14,15 @@ from django.core.urlresolvers import reverse
 from django.test import SimpleTestCase
 
 # https://github.com/jedie/django-tools/
+try:
+    import django_tools
+except ImportError as err:
+    msg = (
+        "Please install django-tools for unittests"
+        " - https://github.com/jedie/django-tools/"
+        " - Original error: %s"
+    ) % err
+    raise ImportError(msg)
 from django_tools.unittest_utils.BrowserDebug import debug_response
 
 from secure_js_login import settings as app_settings

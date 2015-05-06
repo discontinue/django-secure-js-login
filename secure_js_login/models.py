@@ -19,11 +19,9 @@ from django.db.models import signals
 from django.contrib.auth import get_user_model
 from django.utils.encoding import python_2_unicode_compatible
 
-# http://code.google.com/p/django-tools/
-from django_tools.models import UpdateInfoBaseModel
-
 from secure_js_login.utils import crypt
 from secure_js_login import settings as app_settings
+from secure_js_login.utils.base_models import UpdateTimeBaseModel
 
 
 log = logging.getLogger("secure_js_login")
@@ -45,18 +43,16 @@ class UserProfileManager(models.Manager):
 
 
 @python_2_unicode_compatible
-class UserProfile(UpdateInfoBaseModel):
+class UserProfile(UpdateTimeBaseModel):
     """
     Stores additional information about PyLucid users
     http://docs.djangoproject.com/en/dev/topics/auth/#storing-additional-information-about-users
 
     Created via post_save signal, if a new user created.
 
-    inherited attributes from UpdateInfoBaseModel:
+    inherited attributes from UpdateTimeBaseModel:
         createtime     -> datetime of creation
         lastupdatetime -> datetime of the last change
-        createby       -> ForeignKey to user who creaded this entry
-        lastupdateby   -> ForeignKey to user who has edited this entry
     """
     objects = UserProfileManager()
 

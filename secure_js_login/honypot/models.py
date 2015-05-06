@@ -5,9 +5,7 @@ from __future__ import unicode_literals
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import python_2_unicode_compatible
-
-from django_tools.models import UpdateTimeBaseModel # New in django-tools v0.24.2
-
+from secure_js_login.utils.base_models import UpdateTimeBaseModel
 
 
 class CountManager(models.Manager):

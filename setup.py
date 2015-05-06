@@ -75,17 +75,17 @@ setup_info = dict(
     # test_suite = "runtests.run_tests",
     zip_safe=False,
     install_requires=[
-        "Django>=1.7,<1.8",
+        "Django>=1.7,<1.9",
     ],
     tests_require=[
         "selenium", # https://pypi.python.org/pypi/selenium
         "django-tools",  # https://github.com/jedie/django-tools/
     ],
     classifiers=[
-       'Development Status :: 1 - Planning',
+       # 'Development Status :: 1 - Planning',
        # 'Development Status :: 2 - Pre-Alpha',
-       #  'Development Status :: 3 - Alpha',
-       #  "Development Status :: 4 - Beta",
+       # 'Development Status :: 3 - Alpha',
+       "Development Status :: 4 - Beta",
        #  "Development Status :: 5 - Production/Stable",
         "Environment :: Web Environment",
         "Intended Audience :: Developers",
@@ -99,6 +99,7 @@ setup_info = dict(
         "Topic :: Internet :: WWW/HTTP :: Site Management",
         "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
         "Operating System :: OS Independent",
-    ]
+    ],
+    test_suite="runtests.run_tests",
 )
 setup(**setup_info)
