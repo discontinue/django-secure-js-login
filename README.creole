@@ -51,7 +51,7 @@ Server part:
 # compare **test_hash** with transmitted **pbkdf2_hash**
 
 
-== secure?
+=== secure?
 
 JS-SHA1 Login is not really secure in comparison to https! e.g. the client can't validate if he really communicate with the server or with a [[http://en.wikipedia.org/wiki/Man-in-the-middle|Man-in-the-middle]]. JS-SHA1-Login does not protect you against an [[http://en.wikipedia.org/wiki/Session_Hijacking|Session Hijacking]]
 

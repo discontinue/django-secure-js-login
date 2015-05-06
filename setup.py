@@ -63,7 +63,7 @@ def get_authors():
 
 
 setup_info = dict(
-    name='Django secure JS login',
+    name='django-secure-js-login',
     version=VERSION_STRING,
     description='JavaScript Challenge-handshake authentication django app',
     long_description=long_description,
