@@ -23,7 +23,7 @@ ITERATIONS1 = getattr(settings, "ITERATIONS1", 100) # for storing a part of the 
 ITERATIONS2 = getattr(settings, "ITERATIONS2", 100) # for generate on-the-fly the server challenge
 
 # Length of the generated PBKDF2 hash in bytes:
-PBKDF2_BYTE_LENGTH = getattr(settings, "ITERATIONS1", 32) # max length: 256 by model field!
+PBKDF2_BYTE_LENGTH = getattr(settings, "PBKDF2_BYTE_LENGTH", 32) # max length: 256 by model field!
 
 # Length of random string values:
 PBKDF2_SALT_LENGTH = getattr(settings, "PBKDF2_SALT_LENGTH", 12) # max length: 256 by model field!
