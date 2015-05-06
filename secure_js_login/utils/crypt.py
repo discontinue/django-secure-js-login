@@ -16,7 +16,6 @@
 
 from __future__ import unicode_literals
 
-import base64
 import codecs
 import hashlib
 import logging
@@ -179,8 +178,10 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
 
     def verify(self, password, encoded):
         algorithm, iterations, salt, hash = encoded.split('$', 3)
-        assert algorithm == self.algorithm, "wrong algorithm"
-        assert len(hash)/2 == self.length, "wrong hash length"
+        if algorithm != self.algorithm:
+            raise CryptError("wrong algorithm")
+        if len(hash)/2 != self.length:
+            raise CryptError("wrong hash length")
         encoded_2 = self.encode(password, salt, int(iterations))
         return crypto.constant_time_compare(encoded, encoded_2)
 
@@ -300,7 +301,7 @@ class XorCryptor(object):
         txt=force_bytes(txt)
         key=force_bytes(key)
         crypted = self.xor(txt, key)
-        crypted = base64.b64encode(crypted)
+        crypted = binascii.hexlify(crypted)
         crypted = six.text_type(crypted, "ascii")
         return "%s$%s" % (pbkdf2_hash, crypted)
 
@@ -323,9 +324,9 @@ class XorCryptor(object):
         #     )
 
         try:
-            crypted = base64.b64decode(crypted, validate=True)
+            crypted = binascii.unhexlify(crypted)
         except binascii.Error as err:
-            raise CryptError("b64decode error: %s with data: %s" % (err, repr(crypted)))
+            raise CryptError("unhexlify error: %s with data: %s" % (err, repr(crypted)))
 
         if len(crypted) != len(key):
             raise CryptError("encrypt error: %r and %r must have the same length!" % (crypted, key))
@@ -398,7 +399,8 @@ def _simulate_client(plaintext_password, init_pbkdf2_salt, cnonce, server_challe
         iterations=app_settings.ITERATIONS2,
         length=app_settings.PBKDF2_BYTE_LENGTH
     )
-    log.debug("locals():\n%s", pprint.pformat(locals()))
+    # log.debug("locals():\n%s", pprint.pformat(locals()))
+    return pbkdf2_hash, second_pbkdf2_part
 
 
 def check_secure_js_login(encrypted_part, server_challenge, pbkdf2_hash, second_pbkdf2_part, cnonce):
