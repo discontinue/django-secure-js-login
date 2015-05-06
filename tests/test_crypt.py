@@ -2,64 +2,105 @@
 import unittest
 
 from secure_js_login.utils import crypt
+from secure_js_login.utils.crypt import CryptError
 
 
-# class TestCrypt(unittest.TestCase):
-#     """
-#     Low-level tests without models/views etc.
-#     """
-#     # def setUp(self):
-#     #     crypt.seed_generator.DEBUG=True
-#     #
-#     # def tearDown(self):
-#     #     crypt.seed_generator.DEBUG=False
-#
-#     def test_pbkdf2(self):
-#         """
-#         Also tested these pbkdf2 values in pbkdf2_test.html !
-#
-#         """
-#         hash = crypt.pbkdf2(password="not secret", salt="a salt value", iterations=1000, length=32)
-#         self.assertEqual(hash, '9bbc7565baa47ce8e9f5ef181ea2a8959bec965d2ab09b7671e6b1920c67685f')
-#
-#     def test_encrypt(self):
-#         crypt.seed_generator.DEBUG=True # Generate always the same seed for tests
-#         self.assertEqual(
-#             crypt.xor_encrypt(txt="foo", key="bar"),
-#             'sha1$DEBUG_123456$197987f5ca3fd97da45acac3541e3464198a1cee$BA4d'
-#         )
-#
-#     def test_decrypted(self):
-#         crypt.seed_generator.DEBUG=True # Generate always the same seed for tests
-#         self.assertEqual(
-#             crypt.xor_decrypt('sha1$DEBUG_123456$197987f5ca3fd97da45acac3541e3464198a1cee$BA4d', key="bar"),
-#             'foo'
-#         )
-#
-#     def test_decrypt_wrong_key(self):
-#         self.assertRaises(crypt.CryptError,
-#             crypt.xor_decrypt,
-#             'sha1$DEBUG_123456$197987f5ca3fd97da45acac3541e3464198a1cee$BA4d',
-#             key="bXr"
-#         )
-#
-#     def test_decrypt_wrong_salt(self):
-#         self.assertRaises(crypt.CryptError,
-#             crypt.xor_decrypt,
-#             'sha1$DEBUG_12XX56$197987f5ca3fd97da45acac3541e3464198a1cee$BA4d',
-#             key="bar"
-#         )
-#
-#     def test_decrypt_wrong_hash(self):
-#         self.assertRaises(crypt.CryptError,
-#             crypt.xor_decrypt,
-#             'sha1$DEBUG_123456$197987f5ca3fd97da45aXXc3541e3464198a1cee$BA4d',
-#             key="bar"
-#         )
-#
-#     def test_decrypt_wrong_data(self):
-#         self.assertRaises(crypt.CryptError,
-#             crypt.xor_decrypt,
-#             'sha1$DEBUG_123456$197987f5ca3fd97da45acac3541e3464198a1cee$BAXd',
-#             key="bar"
-#         )
+class TestCrypt(unittest.TestCase):
+    """
+    Low-level tests without models/views etc.
+    """
+    def __init__(self, *args, **kwargs):
+        super(TestCrypt, self).__init__(*args, **kwargs)
+        self.test_string = "foo"
+        self.test_key = "bar"
+        crypt.seed_generator.DEBUG=True # Generate always the same seed for tests
+        self.test_encrypted = crypt.xor_crypt.encrypt(self.test_string, key=self.test_key)
+        crypt.seed_generator.DEBUG=False # Generate always the same seed for tests
+        self.assertEqual(self.test_encrypted,
+            "pbkdf2_sha1$100$DEBUG_789012$fb855b6c514ad76b5c0f99910f0a8bc5f1199f2555befd8ae016c4701dc7901b$040e1d"
+        )
+
+
+    def test_pbkdf2(self):
+        self.assertEqual(
+            crypt.hexlify_pbkdf2(password="not secret", salt="a salt value", iterations=10, length=16),
+            "95b44f630c54591e8948256bd2529476"
+        )
+
+    def test_xor_crypt(self):
+        crypted = crypt.xor_crypt.encrypt("foo", key="bar")
+        decrypted = crypt.xor_crypt.decrypt(crypted, key="bar")
+        self.assertEqual(decrypted, "foo")
+
+    def test_wrong_key_size(self):
+        # too long
+        with self.assertRaises(CryptError) as err:
+            crypt.xor_crypt.decrypt(self.test_encrypted, key="barr")
+        self.assertIn("must have the same length!", err.exception.args[0])
+
+        # to short
+        with self.assertRaises(CryptError) as err:
+            crypt.xor_crypt.decrypt(self.test_encrypted, key="ba")
+        self.assertIn("must have the same length!", err.exception.args[0])
+
+    def test_wrong_key(self):
+        with self.assertRaises(CryptError) as err:
+            crypt.xor_crypt.decrypt(self.test_encrypted, key="bXr")
+        self.assertEqual("PBKDF2 hash test failed", err.exception.args[0])
+
+    # e.g.: pbkdf2_sha1$100$DEBUG_789012$fb855b6c514ad76b5c0f99910f0a8bc5f1199f2555befd8ae016c4701dc7901b$BA4d
+
+    def test_wrong_algorithm(self):
+        data = self.test_encrypted
+        data = data.replace("pbkdf2_sha1$", "pbkdf2_sha256$")
+        with self.assertRaises(CryptError) as err:
+            crypt.xor_crypt.decrypt(data, key="bar")
+        self.assertEqual("wrong algorithm", err.exception.args[0])
+
+    def test_wrong_salt(self):
+        data = self.test_encrypted
+        data = data.replace("$DEBUG_789012$", "$DEBUG_X_789012$")
+        with self.assertRaises(CryptError) as err:
+            crypt.xor_crypt.decrypt(data, key="bar")
+        self.assertEqual("PBKDF2 hash test failed", err.exception.args[0])
+
+    def test_wrong_hash(self):
+        data = self.test_encrypted
+        data = data[:40] + "X" + data[41:] # Replace one character in hash value
+        with self.assertRaises(CryptError) as err:
+            crypt.xor_crypt.decrypt(data, key="bar")
+        self.assertEqual("PBKDF2 hash test failed", err.exception.args[0])
+
+    def test_wrong_data1(self):
+        data = self.test_encrypted
+        data += "X"
+        with self.assertRaises(CryptError) as err:
+            crypt.xor_crypt.decrypt(data, key="bar")
+        self.assertEqual("unhexlify error: Odd-length string with data: '040e1dX'", err.exception.args[0])
+
+    def test_wrong_data2(self):
+        data = self.test_encrypted
+        data = data[:-1] + "X"
+        with self.assertRaises(CryptError) as err:
+            crypt.xor_crypt.decrypt(data, key="bar")
+        self.assertEqual("unhexlify error: Non-hexadecimal digit found with data: '040e1X'", err.exception.args[0])
+
+    def test_wrong_data3(self):
+        # data is a valid "hexlify" string, but the hash compare will failed
+        data = self.test_encrypted
+        data = data[:-1] + "f"
+        with self.assertRaises(CryptError) as err:
+            crypt.xor_crypt.decrypt(data, key="bar")
+        self.assertEqual("PBKDF2 hash test failed", err.exception.args[0])
+
+    def test_random_seeds(self):
+        hasher = crypt.PBKDF2SHA1Hasher(iterations=1, length=8)
+        salts = {}
+        hashes = {}
+        for _ in range(10):
+            h = hasher.get_salt_hash("foobar")
+            algorithm, iterations, salt, hash = h.split("$")
+            self.assertNotIn(salt, salts)
+            salts[salt] = None
+            self.assertNotIn(hash, hashes)
+            hashes[hash] = None
