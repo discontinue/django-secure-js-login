@@ -16,17 +16,9 @@ import logging
 from django.contrib.auth.backends import ModelBackend
 
 from secure_js_login.utils import crypt
-from secure_js_login import settings as app_settings
+
 
 log = logging.getLogger("secure_js_login")
-
-
-#LOCAL_DEBUG = True
-LOCAL_DEBUG = False
-
-if LOCAL_DEBUG:
-    # log.critical("Debug mode in auth_backends is on!")
-
 
 
 class SecureLoginAuthBackend(ModelBackend):

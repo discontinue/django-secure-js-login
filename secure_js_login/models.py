@@ -130,7 +130,7 @@ if app_settings.AUTO_CREATE_PASSWORD_HASH:
         orig_set_password(user, raw_password)
 
         userprofile, created = UserProfile.objects.get_or_create(user=user)
-        if created:
+        # if created:
             # log.info("UserProfile entry for user '%s' created.", user)
 
         userprofile.set_secure_login_data(raw_password)

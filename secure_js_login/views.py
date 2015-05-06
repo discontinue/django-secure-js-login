@@ -33,27 +33,10 @@ from secure_js_login import settings as app_settings
 
 log = logging.getLogger("secure_js_login")
 
-
-# DEBUG is usefull for debugging. It send always the same challenge "12345"
-# DEBUG = True
-DEBUG = False
-# IMPORTANT: Should really only use for debugging!!!
-if DEBUG:
-    import warnings
-    warnings.warn("Debug mode in auth plugin is on! print statements would be used!")
-
-
 def _get_server_challenge(request):
     """ create a new server_challenge, add it to session and return it"""
-    if DEBUG:
-        crypt.seed_generator.DEBUG=True # Generate always the same seed for tests
-
     # Create a new random salt value for the password server_challenge:
     server_challenge = crypt.seed_generator(app_settings.RANDOM_CHALLENGE_LENGTH)
-
-    crypt.seed_generator.DEBUG=False
-    if DEBUG:
-        # log.critical("use DEBUG server_challenge: %r", server_challenge)
 
     # For later comparing with form data
     request.session["server_challenge"] = server_challenge
@@ -74,81 +57,6 @@ def _wrong_login(request, user=None):
     response = "%s;%s" % (challenge, error_msg)
     return HttpResponse(response, content_type="text/plain")
 
-
-
-@csrf_protect
-def secure_auth(request, next="/"):
-    """
-    login the user with username and sha values.
-    """
-    # log.debug("secure_auth() requested with: %s", repr(request.POST))
-
-    _NORMAL_ERROR_MSG = "_secure_auth() error"
-
-    form = SecureLoginForm(request.POST)
-    if not form.is_valid():
-        # log.debug("ShaLoginForm is not valid: %s", repr(form.errors))
-        return HttpResponseBadRequest()
-    else:
-        sha_a, sha_b, cnonce = form.cleaned_data["password"]
-        # log.debug("SHA-A: %r", sha_a)
-        # log.debug("SHA-B: %r", sha_b)
-        # log.debug("CNONCE: %r", cnonce)
-
-    try:
-        challenge = request.session.pop("challenge")
-    except KeyError as err:
-        # log.debug("Can't get 'challenge' from session: %s", err)
-        return HttpResponseBadRequest()
-    else:
-        # log.debug("Challenge from session: %r", challenge)
-
-    try:
-        user1, user_profile = form.get_user_and_profile()
-    except WrongUserError as err:
-        # log.debug("Can't get user and user profile: %s", err)
-        return _wrong_login(request)
-
-    sha_checksum = user_profile.sha_login_checksum
-
-    # Simple check if 'nonce' from client used in the past.
-    # Limitations:
-    #  - Works only when run in a long-term server process, so not in CGI ;)
-    #  - dict vary if more than one server process runs (one dict in one process)
-    if cnonce in CNONCE_CACHE:
-        # log.error("Client-nonce '%s' used in the past!", cnonce)
-        return HttpResponseBadRequest()
-    CNONCE_CACHE[cnonce] = None
-
-    # log.debug("authenticate %r with: challenge: %r, sha_checksum: %r, sha_a: %r, sha_b: %r, cnonce: %r" % (
-        user1, challenge, sha_checksum, sha_a, sha_b, cnonce
-        )
-    )
-
-    try:
-        # authenticate with:
-        # pylucid.system.auth_backends.SiteSHALoginAuthBackend
-        user2 = auth.authenticate(
-            user=user1, challenge=challenge,
-            sha_a=sha_a, sha_b=sha_b,
-            sha_checksum=sha_checksum,
-            loop_count=app_settings.LOOP_COUNT, cnonce=cnonce
-        )
-    except Exception as err: # e.g. low level error from crypt
-        # log.error("auth.authenticate() failed: %s", err)
-        return _wrong_login(request, user1)
-
-    if user2 is None:
-        # log.error("auth.authenticate() failed. (must be a wrong password)")
-        return _wrong_login(request, user1)
-    else:
-        # log.debug("Authentication ok, log in the user")
-        # everything is ok -> log the user in and display "last login" page message
-        last_login = user2.last_login
-        auth.login(request, user2)
-        message = render_to_string('secure_js_login/login_info.html', {"last_login":last_login})
-        messages.success(request, message)
-        return HttpResponse("OK", content_type="text/plain")
 
 
 @csrf_protect
@@ -226,24 +134,6 @@ def secure_js_login(request):
 
     # create a new challenge and add it to session
     server_challenge = _get_server_challenge(request)
-
-    # if request.method == 'GET':
-    #     # create a new challenge and add it to session
-    #     server_challenge = _get_server_challenge(request)
-    # elif request.method == 'POST':
-    #     if not "server_challenge" in request.session:
-    #         # Previous login failed and form will send again with error message
-    #         server_challenge = _get_server_challenge(request)
-    #     else:
-    #         server_challenge=None
-    #         # server_challenge = request.session["server_challenge"]
-    #         # log.debug("Use old server_challenge: %r", server_challenge)
-    #
-    # #
-    # #     # log.debug("secure_js_login() POST data:\n%s", pprint.pformat(request.POST))
-    # #     server_challenge = None # Will be get from session in secureLoginForm()
-    # else:
-    #     return HttpResponseBadRequest("Wrong request.method!")
 
     return login(request,
         template_name="secure_js_login/sha_form.html",
