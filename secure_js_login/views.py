@@ -136,11 +136,12 @@ def secure_js_login(request):
     server_challenge = _get_server_challenge(request)
 
     return login(request,
-        template_name="secure_js_login/sha_form.html",
+        template_name="secure_js_login/secure_js_login.html",
         # redirect_field_name=REDIRECT_FIELD_NAME,
         authentication_form=SecureLoginForm,
         current_app="secure_js_login",
         extra_context={
+            "title": "Secure-JS-Login",
             "DEBUG": "true" if settings.DEBUG else "false",
             "challenge": server_challenge,
             "CHALLENGE_LENGTH": app_settings.RANDOM_CHALLENGE_LENGTH,

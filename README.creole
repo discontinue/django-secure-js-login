@@ -8,6 +8,8 @@ It is more a [[http://en.wikipedia.org/wiki/Challenge-handshake_authentication_p
 
 TODO:
 * code cleanup
+* cleanup templates
+* fix "next_url" and all links in example project
 * add unittests for using old challange value again
 * add unittests for using old cnonce value again
 

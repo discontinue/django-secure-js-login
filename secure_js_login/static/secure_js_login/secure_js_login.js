@@ -358,13 +358,22 @@ function precheck_secure_login() {
 
 
 //-----------------------------------------------------------------------------
-
+function sleep(milliseconds) {
+  var start = new Date().getTime();
+  for (var i = 0; i < 1e7; i++) {
+    if ((new Date().getTime() - start) > milliseconds){
+      break;
+    }
+  }
+}
 
 function init_secure_login() {
     /*
         Secure-JS-Login
         init from /secure_js_login/sha_form.html
     */
+    $("#content-main").append('<p id="init_message">init...</p>');
+
     log("secure_js_login.js - init_secure_login()");
     
     try {
@@ -373,9 +382,6 @@ function init_secure_login() {
         low_level_error(e);
         return false;
     }
-
-    $("form").slideDown();
-    $(ID_USERNAME).focus();
 
     $(ID_USERNAME).change(function() {
         // if the username change, we must get a new salt from server.
@@ -481,6 +487,10 @@ function init_secure_login() {
         }
         return false;
     });
+
+    $("#init_message").slideUp();
+    $("form").slideDown();
+    $(ID_USERNAME).focus();
 }
 
 
