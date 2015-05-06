@@ -30,13 +30,13 @@ from django.conf import settings
 from django.test.utils import get_runner
 
 def run_tests(test_labels=None):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.test_settings'
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.test_utils.test_settings'
     django.setup()
 
     TestRunner = get_runner(settings)
     test_runner = TestRunner(
         verbosity=2,
-        # failfast=True,
+        failfast=True,
     )
 
     if test_labels is None:

@@ -15,7 +15,7 @@
     :license: GNU GPL v3 or above, see LICENSE for more details.
 """
 
-from __future__ import unicode_literals, print_function
+from __future__ import unicode_literals
 from django.contrib.auth import get_user_model
 
 from django.db.models.loading import get_models, get_app

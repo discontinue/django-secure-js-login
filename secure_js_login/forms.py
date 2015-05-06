@@ -1,14 +1,15 @@
 # coding: utf-8
 
 """
-    PyLucid JS-SHA-Login forms
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Secure JavaScript Login
+    ~~~~~~~~~~~~~~~~~~~~~~~
 
-    A secure JavaScript SHA-1 AJAX Login.
-
-    :copyleft: 2007-2015 by the PyLucid team, see AUTHORS for more details.
+    :copyleft: 2007-2015 by the secure-js-login team, see AUTHORS for more details.
+    :created: by JensDiemer.de
     :license: GNU GPL v3 or above, see LICENSE for more details
 """
+
+from __future__ import unicode_literals
 
 import logging
 import re

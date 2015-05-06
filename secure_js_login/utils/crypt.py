@@ -1,17 +1,12 @@
 # coding: utf-8
 
 """
-    PyLucid.tools.crypt
-    ~~~~~~~~~~~~~~~~~~~
+    Secure JavaScript Login
+    ~~~~~~~~~~~~~~~~~~~~~~~
 
-    Routines for the PyLucid SHA-JS-Login.
-    more info:
-        http://www.pylucid.org/permalink/42/secure-login-without-https
-
-    unittest: ./dev_scripts/unittests/unittest_crypt.py
-
-    :copyleft: 2007-2015 by the PyLucid team, see AUTHORS for more details.
-    :license: GNU GPL v3 or above, see LICENSE for more details.
+    :copyleft: 2007-2015 by the secure-js-login team, see AUTHORS for more details.
+    :created: by JensDiemer.de
+    :license: GNU GPL v3 or above, see LICENSE for more details
 """
 
 from __future__ import unicode_literals
@@ -28,7 +23,7 @@ import time
 import binascii
 
 if __name__ == "__main__":
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.test_settings'
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.test_utils.test_settings'
     print("\nUse DJANGO_SETTINGS_MODULE=%r" % os.environ["DJANGO_SETTINGS_MODULE"])
 
 from django.conf import settings
@@ -177,11 +172,17 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
         return self.encode(txt, salt)
 
     def verify(self, password, encoded):
-        algorithm, iterations, salt, hash = encoded.split('$', 3)
+        try:
+            algorithm, iterations, salt, hash = encoded.split('$', 3)
+        except ValueError as err:
+            raise CryptError("Encoded split error: %s" % err)
+
         if algorithm != self.algorithm:
             raise CryptError("wrong algorithm")
+
         if len(hash)/2 != self.length:
             raise CryptError("wrong hash length")
+
         encoded_2 = self.encode(password, salt, int(iterations))
         return crypto.constant_time_compare(encoded, encoded_2)
 

@@ -1,7 +1,20 @@
+# coding: utf-8
+
+"""
+    Secure JavaScript Login
+    ~~~~~~~~~~~~~~~~~~~~~~~
+
+    :copyleft: 2007-2015 by the secure-js-login team, see AUTHORS for more details.
+    :created: by JensDiemer.de
+    :license: GNU GPL v3 or above, see LICENSE for more details
+"""
+
+from __future__ import unicode_literals
+
 import os
 
-# set: DJANGO_SETTINGS_MODULE:tests.test_settings to run the tests
-assert os.environ["DJANGO_SETTINGS_MODULE"]=="tests.test_settings"
+# set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
+assert os.environ["DJANGO_SETTINGS_MODULE"]=="tests.test_utils.test_settings"
 
 from django.conf import settings
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
@@ -14,6 +27,18 @@ from selenium.webdriver.support import expected_conditions
 
 from tests.test_utils.test_cases import UserTestCaseMixin
 
+# https://github.com/jedie/django-tools/
+try:
+    import django_tools
+except ImportError as err:
+    msg = (
+        "Please install django-tools for unittests"
+        " - https://github.com/jedie/django-tools/"
+        " - Original error: %s"
+    ) % err
+    raise ImportError(msg)
+from django_tools.unittest_utils.BrowserDebug import debug_response
+
 
 class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
     """
@@ -23,7 +48,6 @@ class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
     def setUpClass(cls):
         super(SeleniumTests, cls).setUpClass()
         cls.driver = webdriver.Firefox()
-        cls.driver.implicitly_wait(1)
 
     @classmethod
     def tearDownClass(cls):
@@ -127,14 +151,19 @@ class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
             password
         )
 
+        # self.track_element = self.driver.create_web_element("SELENIUM_PAGE_LOAD_TRACKING_ELEMENT")
+        self.body = self.driver.find_element_by_css_selector('body')
+
         # Submit the Form
         self.driver.find_element_by_xpath('//input[@value="Log in"]').click()
 
     def _wait_until_reload(self):
-        body = self.driver.find_element_by_css_selector('body')
         check = WebDriverWait(self.driver, 10).until(
-            expected_conditions.staleness_of(body)
+            # expected_conditions.staleness_of(self.track_element)
+            expected_conditions.staleness_of(self.body)
         )
+        self.body = None
+        self.track_element = None
         self.assertTrue(check)
         
     def _secure_login(self, username, password):
@@ -146,11 +175,16 @@ class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
         self._wait_until_reload()
 
     def assertSecureLoginSuccess(self, page_source):
-        self.assertIn("You are logged in.", page_source)
-        self.assertIn("Last login was:", page_source)
-        self.assertIn(self.SUPER_USER_NAME, page_source)
-        self.assertIn("Log out", page_source)
-        self.assertNotIn("Error", page_source)
+        try:
+            self.assertIn("You are logged in.", page_source)
+            self.assertIn("Last login was:", page_source)
+            self.assertIn(self.SUPER_USER_NAME, page_source)
+            self.assertIn("Log out", page_source)
+            self.assertNotIn("Error", page_source)
+        except AssertionError as err:
+            # import time
+            # time.sleep(10)
+            raise
 
     def assertSecureLoginFailed(self, page_source):
         self.assertNotIn("You are logged in.", page_source)

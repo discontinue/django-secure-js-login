@@ -1,12 +1,21 @@
-"""
-Django settings for example_project project.
+# coding: utf-8
 
-For more information on this file, see
-https://docs.djangoproject.com/en/1.7/topics/settings/
-
-For the full list of settings and their values, see
-https://docs.djangoproject.com/en/1.7/ref/settings/
 """
+    Secure JavaScript Login
+    ~~~~~~~~~~~~~~~~~~~~~~~
+
+    For more information on this file, see
+    https://docs.djangoproject.com/en/1.7/topics/settings/
+
+    For the full list of settings and their values, see
+    https://docs.djangoproject.com/en/1.7/ref/settings/
+
+    :copyleft: 2007-2015 by the secure-js-login team, see AUTHORS for more details.
+    :created: by JensDiemer.de
+    :license: GNU GPL v3 or above, see LICENSE for more details
+"""
+
+from __future__ import unicode_literals
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
