@@ -257,7 +257,8 @@ def secure_js_login(request):
             "NONCE_LENGTH": app_settings.CLIENT_NONCE_LENGTH,
             "SALT_LENGTH": app_settings.PBKDF2_SALT_LENGTH,
             "PBKDF2_BYTE_LENGTH": app_settings.PBKDF2_BYTE_LENGTH,
-            "ITERATIONS": app_settings.ITERATIONS2,
+            "ITERATIONS1": app_settings.ITERATIONS1,
+            "ITERATIONS2": app_settings.ITERATIONS2,
             "CSRF_COOKIE_NAME": settings.CSRF_COOKIE_NAME,
         }
     )

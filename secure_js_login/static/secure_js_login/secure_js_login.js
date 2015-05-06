@@ -225,7 +225,8 @@ function sha_hexdigest(txt) {
     return SHA_hexdigest;
 }
 
-function pbkdf2(txt, salt, callback, iterations=ITERATIONS, bytes=PBKDF2_BYTE_LENGTH) {
+function pbkdf2(txt, salt, iterations, callback, bytes=PBKDF2_BYTE_LENGTH) {
+    log("pbkdf2 calc with iterations: " + iterations + " - bytes: " + bytes)
     var mypbkdf2 = new PBKDF2(password=txt, salt=salt, iterations=iterations, bytes=bytes);
     mypbkdf2.deriveKey(
         function(percent_done) {
@@ -253,6 +254,7 @@ function test_pbkdf2_js() {
     pbkdf2(
         txt=test_string,
         salt=test_string,
+        iterations=5,
         callback=function(key) {
             var should_be = '4460365dc7df037dbdd851f1ffed7130';
             if (key == should_be) {
@@ -264,7 +266,7 @@ function test_pbkdf2_js() {
                 throw msg;
             }
         },
-        iterations=5, bytes=16
+        bytes=16
     );
 }
 
@@ -278,7 +280,7 @@ function calculate_hashes(password, salt, challenge, callback) {
     log('pbkdf2_temp_hash = pbkdf2("Plain Password", init_pass_salt):');
 
     var old_value = $(ID_PASSWORD).val();
-    pbkdf2(password, salt, function(pbkdf2_temp_hash) {
+    pbkdf2(password, salt, ITERATIONS1, function(pbkdf2_temp_hash) {
         log("pbkdf2_temp_hash = " + pbkdf2_temp_hash);
 
         // split pbkdf2_temp_hash
@@ -296,7 +298,7 @@ function calculate_hashes(password, salt, challenge, callback) {
         log("second_pbkdf2_salt = " + second_pbkdf2_salt);
 
         log("pbkdf2_hash = pbkdf2(first_pbkdf2_part, salt=cnonce + server_challenge)");
-        pbkdf2(first_pbkdf2_part, second_pbkdf2_salt, function(pbkdf2_hash) {
+        pbkdf2(first_pbkdf2_part, second_pbkdf2_salt, ITERATIONS2, function(pbkdf2_hash) {
             log("pbkdf2_hash = " + pbkdf2_hash);
             log("result = pbkdf2_hash + $ + second_pbkdf2_part + $ + cnonce")
             var result = pbkdf2_hash + "$" + second_pbkdf2_part + "$" + cnonce;
@@ -343,7 +345,8 @@ function precheck_secure_login() {
     assert_is_number("NONCE_LENGTH");
     assert_is_number("SALT_LENGTH");
     assert_is_number("PBKDF2_BYTE_LENGTH");
-    assert_is_number("ITERATIONS");
+    assert_is_number("ITERATIONS1");
+    assert_is_number("ITERATIONS2");
 
     assert_variable_length("challenge", CHALLENGE_LENGTH);
 
