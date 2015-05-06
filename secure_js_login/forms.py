@@ -100,7 +100,7 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
     )
 
     def _raise_validate_error(self, msg):
-        log.debug(msg)
+        # log.debug(msg)
         if not settings.DEBUG:
             msg = self.error_messages['invalid_login']
         raise forms.ValidationError(msg)
@@ -111,7 +111,7 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
         server_challenge = self.request.old_server_challenge
         if not server_challenge:
             self._raise_validate_error("request.old_server_challenge not set.")
-        log.debug("Challenge from session: %r", server_challenge)
+        # log.debug("Challenge from session: %r", server_challenge)
 
         username = self.cleaned_data.get('username')
         if not username:

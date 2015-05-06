@@ -83,7 +83,7 @@ class SeedGenerator(object):
     DEBUG=False
     def __call__(self, length):
         if self.DEBUG:
-            log.critical("Use DEBUG seed!")
+            # log.critical("Use DEBUG seed!")
             #            12345678901234567890123456789012345678901234567890
             debug_value="DEBUG_78901234567890123456789012345678901234567890"
             return debug_value[:length]
@@ -106,6 +106,7 @@ def hexlify_pbkdf2(password, salt, iterations, length, digest=hashlib.sha1):
     >>> hexlify_pbkdf2("not secret", "a salt value", iterations=100, length=16)
     '0b919231515dde16f76364666cf07107'
     """
+    # log.debug("hexlify_pbkdf2 with iterations=%i", iterations)
     hash = crypto.pbkdf2(password, salt, iterations=iterations, dklen=length, digest=digest)
     hash = binascii.hexlify(hash)
     hash = six.text_type(hash, "ascii")
@@ -161,7 +162,7 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
             assert iterations==self.iterations, "wrong iterations"
 
         hash = hexlify_pbkdf2(password, salt, iterations=self.iterations, length=self.length, digest=self.digest)
-        # #log.debug("locals():\n%s", pprint.pformat(locals()))
+        # log.debug("locals():\n%s", pprint.pformat(locals()))
         return "%s$%d$%s$%s" % (self.algorithm, self.iterations, salt, hash)
 
     def get_hash(self, password, salt):
@@ -375,7 +376,7 @@ def salt_hash_from_plaintext(password):
 
     encrypted_part = xor_crypt.encrypt(first_pbkdf2_part, key=second_pbkdf2_part)
 
-    #log.debug("locals():\n%s", pprint.pformat(locals()))
+    # log.debug("locals():\n%s", pprint.pformat(locals()))
     return init_pbkdf2_salt, encrypted_part
 
 
@@ -410,7 +411,7 @@ def check_secure_js_login(encrypted_part, server_challenge, pbkdf2_hash, second_
     test_hash = pbkdf2(first_pbkdf2_part, key=cnonce + server_challenge)
     compare test_hash with transmitted pbkdf2_hash
     """
-    log.debug("check_secure_js_login()")
+    # log.debug("check_secure_js_login()")
     first_pbkdf2_part = xor_crypt.decrypt(encrypted_part, key=second_pbkdf2_part)
     test_hash = hexlify_pbkdf2(
         first_pbkdf2_part,
@@ -418,7 +419,7 @@ def check_secure_js_login(encrypted_part, server_challenge, pbkdf2_hash, second_
         iterations=app_settings.ITERATIONS2,
         length=app_settings.PBKDF2_BYTE_LENGTH
     )
-    #log.debug("locals():\n%s", pprint.pformat(locals()))
+    # log.debug("locals():\n%s", pprint.pformat(locals()))
     return crypto.constant_time_compare(test_hash, pbkdf2_hash)
 
 

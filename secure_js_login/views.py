@@ -53,11 +53,11 @@ def _get_server_challenge(request):
 
     crypt.seed_generator.DEBUG=False
     if DEBUG:
-        log.critical("use DEBUG server_challenge: %r", server_challenge)
+        # log.critical("use DEBUG server_challenge: %r", server_challenge)
 
     # For later comparing with form data
     request.session["server_challenge"] = server_challenge
-    log.debug("Save new server_challenge %r to session.", server_challenge)
+    # log.debug("Save new server_challenge %r to session.", server_challenge)
 
     return server_challenge
 
@@ -65,7 +65,7 @@ def _get_server_challenge(request):
 
 def _wrong_login(request, user=None):
     """ username or password is wrong. """
-    log.error("Login error, username: %r", user.username)
+    # log.error("Login error, username: %r", user.username)
 
     # create a new challenge and add it to session
     challenge = _get_server_challenge(request)
@@ -81,32 +81,32 @@ def secure_auth(request, next="/"):
     """
     login the user with username and sha values.
     """
-    log.debug("secure_auth() requested with: %s", repr(request.POST))
+    # log.debug("secure_auth() requested with: %s", repr(request.POST))
 
     _NORMAL_ERROR_MSG = "_secure_auth() error"
 
     form = SecureLoginForm(request.POST)
     if not form.is_valid():
-        log.debug("ShaLoginForm is not valid: %s", repr(form.errors))
+        # log.debug("ShaLoginForm is not valid: %s", repr(form.errors))
         return HttpResponseBadRequest()
     else:
         sha_a, sha_b, cnonce = form.cleaned_data["password"]
-        log.debug("SHA-A: %r", sha_a)
-        log.debug("SHA-B: %r", sha_b)
-        log.debug("CNONCE: %r", cnonce)
+        # log.debug("SHA-A: %r", sha_a)
+        # log.debug("SHA-B: %r", sha_b)
+        # log.debug("CNONCE: %r", cnonce)
 
     try:
         challenge = request.session.pop("challenge")
     except KeyError as err:
-        log.debug("Can't get 'challenge' from session: %s", err)
+        # log.debug("Can't get 'challenge' from session: %s", err)
         return HttpResponseBadRequest()
     else:
-        log.debug("Challenge from session: %r", challenge)
+        # log.debug("Challenge from session: %r", challenge)
 
     try:
         user1, user_profile = form.get_user_and_profile()
     except WrongUserError as err:
-        log.debug("Can't get user and user profile: %s", err)
+        # log.debug("Can't get user and user profile: %s", err)
         return _wrong_login(request)
 
     sha_checksum = user_profile.sha_login_checksum
@@ -116,11 +116,11 @@ def secure_auth(request, next="/"):
     #  - Works only when run in a long-term server process, so not in CGI ;)
     #  - dict vary if more than one server process runs (one dict in one process)
     if cnonce in CNONCE_CACHE:
-        log.error("Client-nonce '%s' used in the past!", cnonce)
+        # log.error("Client-nonce '%s' used in the past!", cnonce)
         return HttpResponseBadRequest()
     CNONCE_CACHE[cnonce] = None
 
-    log.debug("authenticate %r with: challenge: %r, sha_checksum: %r, sha_a: %r, sha_b: %r, cnonce: %r" % (
+    # log.debug("authenticate %r with: challenge: %r, sha_checksum: %r, sha_a: %r, sha_b: %r, cnonce: %r" % (
         user1, challenge, sha_checksum, sha_a, sha_b, cnonce
         )
     )
@@ -135,14 +135,14 @@ def secure_auth(request, next="/"):
             loop_count=app_settings.LOOP_COUNT, cnonce=cnonce
         )
     except Exception as err: # e.g. low level error from crypt
-        log.error("auth.authenticate() failed: %s", err)
+        # log.error("auth.authenticate() failed: %s", err)
         return _wrong_login(request, user1)
 
     if user2 is None:
-        log.error("auth.authenticate() failed. (must be a wrong password)")
+        # log.error("auth.authenticate() failed. (must be a wrong password)")
         return _wrong_login(request, user1)
     else:
-        log.debug("Authentication ok, log in the user")
+        # log.debug("Authentication ok, log in the user")
         # everything is ok -> log the user in and display "last login" page message
         last_login = user2.last_login
         auth.login(request, user2)
@@ -158,7 +158,7 @@ def get_salt(request):
     If the user doesn't exist return a pseudo salt.
     """
     if not "username" in request.POST:
-        log.error("No 'username' in POST data?!?")
+        # log.error("No 'username' in POST data?!?")
         return HttpResponseBadRequest()
 
     send_pseudo_salt=True
@@ -170,7 +170,7 @@ def get_salt(request):
             user, user_profile = form.get_user_and_profile()
         except ObjectDoesNotExist as err:
             msg = "Error getting user + profile: %s" % err
-            log.error(msg)
+            # log.error(msg)
         else:
             send_pseudo_salt=False
     else:
@@ -180,15 +180,15 @@ def get_salt(request):
         init_pbkdf2_salt = user_profile.init_pbkdf2_salt
         if not init_pbkdf2_salt:
             msg="No init_pbkdf2_salt set in user profile!"
-            log.error(msg)
+            # log.error(msg)
             send_pseudo_salt=True
         elif len(init_pbkdf2_salt)!=app_settings.PBKDF2_SALT_LENGTH:
             msg = "Salt for user %r has wrong length: %r" % (request.POST["username"], init_pbkdf2_salt)
-            log.error(msg)
+            # log.error(msg)
             send_pseudo_salt=True
 
     if send_pseudo_salt:
-        log.debug("Use pseudo salt!!!")
+        # log.debug("Use pseudo salt!!!")
         init_pbkdf2_salt = crypt.get_pseudo_salt(app_settings.PBKDF2_SALT_LENGTH, username)
 
     # log.debug("send init_pbkdf2_salt %r to client.", init_pbkdf2_salt)
@@ -220,7 +220,7 @@ def secure_js_login(request):
     """
     try:
         request.old_server_challenge = request.session["server_challenge"]
-        log.debug("Use old server_challenge: %r", request.old_server_challenge)
+        # log.debug("Use old server_challenge: %r", request.old_server_challenge)
     except KeyError:
         request.old_server_challenge = None
 

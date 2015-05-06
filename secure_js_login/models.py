@@ -71,10 +71,10 @@ class UserProfile(UpdateTimeBaseModel):
         Create a XOR encrypted PBKDF2 salted checksum from a plaintext password.
         """
         init_pbkdf2_salt, encrypted_part = crypt.salt_hash_from_plaintext(password)
-        log.debug("set init_pbkdf2_salt=%r and encrypted_part=%r", init_pbkdf2_salt, encrypted_part)
+        # log.debug("set init_pbkdf2_salt=%r and encrypted_part=%r", init_pbkdf2_salt, encrypted_part)
         self.init_pbkdf2_salt = init_pbkdf2_salt
         self.encrypted_part = encrypted_part
-        log.info("Secure login data saved for user '%s'.", self.user)
+        # log.info("Secure login data saved for user '%s'.", self.user)
 
     # def save(self, *args, **kwargs):
     #     super(UserProfile, self).save(*args, **kwargs)
@@ -95,7 +95,7 @@ class UserProfile(UpdateTimeBaseModel):
 #     user = kwargs["instance"]
 #     userprofile, created = UserProfile.objects.get_or_create(user=user)
 #     if created:
-#         log.info("UserProfile entry for user '%s' created.", user)
+#         # log.info("UserProfile entry for user '%s' created.", user)
 #
 # signals.post_save.connect(create_user_profile, sender=settings.AUTH_USER_MODEL)
 
@@ -119,7 +119,7 @@ if app_settings.AUTO_CREATE_PASSWORD_HASH:
 
 
     def set_password(user, raw_password):
-        log.debug("set plaintext password for user %r", user.username)
+        # log.debug("set plaintext password for user %r", user.username)
 
         if user.id == None:
             # It is a new user. We must save the django user accound first to get a
@@ -131,12 +131,12 @@ if app_settings.AUTO_CREATE_PASSWORD_HASH:
 
         userprofile, created = UserProfile.objects.get_or_create(user=user)
         if created:
-            log.info("UserProfile entry for user '%s' created.", user)
+            # log.info("UserProfile entry for user '%s' created.", user)
 
         userprofile.set_secure_login_data(raw_password)
         userprofile.save()
 
 
-    log.debug("Activate monkey-patch 'User.set_password'")
+    # log.debug("Activate monkey-patch 'User.set_password'")
     # replace the method
     User.set_password = set_password
