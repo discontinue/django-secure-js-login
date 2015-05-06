@@ -290,8 +290,13 @@ function calculate_hashes(password, salt, challenge, callback) {
 
         var cnonce = generate_nonce("django secure JS login");
         assert_length(cnonce, NONCE_LENGTH, "cnonce");
+
+        log("second_pbkdf2_salt = cnonce + server_challenge");
+        second_pbkdf2_salt = cnonce + challenge;
+        log("second_pbkdf2_salt = " + second_pbkdf2_salt);
+
         log("pbkdf2_hash = pbkdf2(first_pbkdf2_part, salt=cnonce + server_challenge)");
-        pbkdf2(first_pbkdf2_part, cnonce + challenge, function(pbkdf2_hash) {
+        pbkdf2(first_pbkdf2_part, second_pbkdf2_salt, function(pbkdf2_hash) {
             log("pbkdf2_hash = " + pbkdf2_hash);
             log("result = pbkdf2_hash + $ + second_pbkdf2_part + $ + cnonce")
             var result = pbkdf2_hash + "$" + second_pbkdf2_part + "$" + cnonce;
@@ -375,8 +380,8 @@ function init_secure_login() {
         return false;
     });
 
-    $(ID_USERNAME).val("test"); // XXX: for testing only!!!
-    setTimeout(function() { $(ID_PASSWORD).val("12345678"); }, 2); // XXX: for testing only!!!
+//    $(ID_USERNAME).val("test"); // XXX: for testing only!!!
+//    setTimeout(function() { $(ID_PASSWORD).val("12345678"); }, 2); // XXX: for testing only!!!
 
     var submit_by="user";
     var salt=""; // will be set via ajax

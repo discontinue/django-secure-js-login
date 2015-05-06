@@ -167,7 +167,7 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
             assert iterations==self.iterations, "wrong iterations"
 
         hash = hexlify_pbkdf2(password, salt, iterations=self.iterations, length=self.length, digest=self.digest)
-        # log.debug("locals(): %s", pprint.pformat(locals()))
+        # #log.debug("locals():\n%s", pprint.pformat(locals()))
         return "%s$%d$%s$%s" % (self.algorithm, self.iterations, salt, hash)
 
     def get_hash(self, password, salt):
@@ -361,19 +361,44 @@ def salt_hash_from_plaintext(password):
     'pbkdf2_sha1$10$DEBUG_789012$9345c4d9ebcdae15931fefc11199022da569673b81d54d768ec449b14c3d5f1c$CQVQBlNbAAAAVQhaBwtQBABRV1UBA1AIU10GUlQLUVU='
     """
     init_pbkdf2_salt = seed_generator(app_settings.PBKDF2_SALT_LENGTH)
-    pbkdf2_hash = hexlify_pbkdf2(
-        password, init_pbkdf2_salt,
+    pbkdf2_temp_hash = hexlify_pbkdf2(
+        password,
+        salt=init_pbkdf2_salt,
         iterations=app_settings.ITERATIONS1,
         length=app_settings.PBKDF2_BYTE_LENGTH
     )
 
-    first_pbkdf2_part = pbkdf2_hash[:PBKDF2_HALF_HEX_LENGTH]
-    second_pbkdf2_part = pbkdf2_hash[PBKDF2_HALF_HEX_LENGTH:]
+    first_pbkdf2_part = pbkdf2_temp_hash[:PBKDF2_HALF_HEX_LENGTH]
+    second_pbkdf2_part = pbkdf2_temp_hash[PBKDF2_HALF_HEX_LENGTH:]
 
     encrypted_part = xor_crypt.encrypt(first_pbkdf2_part, key=second_pbkdf2_part)
 
-    log.debug("locals(): %s", pprint.pformat(locals()))
+    #log.debug("locals():\n%s", pprint.pformat(locals()))
     return init_pbkdf2_salt, encrypted_part
+
+
+def _simulate_client(plaintext_password, init_pbkdf2_salt, cnonce, server_challenge):
+    """
+    A implementation of the JavaScript client part.
+    Needful for finding bugs.
+    """
+    pbkdf2_temp_hash = hexlify_pbkdf2(
+        plaintext_password,
+        salt=init_pbkdf2_salt,
+        iterations=app_settings.ITERATIONS1,
+        length=app_settings.PBKDF2_BYTE_LENGTH
+    )
+    first_pbkdf2_part = pbkdf2_temp_hash[:PBKDF2_HALF_HEX_LENGTH]
+    second_pbkdf2_part = pbkdf2_temp_hash[PBKDF2_HALF_HEX_LENGTH:]
+
+    second_pbkdf2_salt = cnonce + server_challenge
+    pbkdf2_hash = hexlify_pbkdf2(
+        first_pbkdf2_part,
+        salt=second_pbkdf2_salt,
+        iterations=app_settings.ITERATIONS2,
+        length=app_settings.PBKDF2_BYTE_LENGTH
+    )
+    log.debug("locals():\n%s", pprint.pformat(locals()))
 
 
 def check_secure_js_login(encrypted_part, server_challenge, pbkdf2_hash, second_pbkdf2_part, cnonce):
@@ -390,14 +415,8 @@ def check_secure_js_login(encrypted_part, server_challenge, pbkdf2_hash, second_
         iterations=app_settings.ITERATIONS2,
         length=app_settings.PBKDF2_BYTE_LENGTH
     )
-    log.debug("locals(): %s", pprint.pformat(locals()))
-    if test_hash==pbkdf2_hash:
-        log.info("secure js login check is ok!")
-        return True
-
-    log.error("secure js login check failed!")
-    log.error("%r != %r", test_hash, pbkdf2_hash)
-    return False
+    #log.debug("locals():\n%s", pprint.pformat(locals()))
+    return crypto.constant_time_compare(test_hash, pbkdf2_hash)
 
 
 if __name__ == "__main__":

@@ -18,15 +18,7 @@
 
 import logging
 
-from django.conf import settings
-from django.contrib import messages
-from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
-from django.contrib.auth.models import User
-from django.contrib.sites.models import Site
-from django.core.exceptions import ObjectDoesNotExist
-from django.utils.translation import ugettext as _
-from secure_js_login.models import UserProfile
 
 from secure_js_login.utils import crypt
 from secure_js_login import settings as app_settings
@@ -60,7 +52,7 @@ class SecureLoginAuthBackend(ModelBackend):
 
         user = kwargs.pop("user")
 
-        log.debug("Check with: %r" % repr(kwargs))
+        # log.debug("Check with: %r" % repr(kwargs))
         check = crypt.check_secure_js_login(**kwargs)
         if check == True:
             return user

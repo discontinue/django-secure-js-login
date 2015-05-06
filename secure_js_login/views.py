@@ -15,18 +15,17 @@
 
 from __future__ import unicode_literals
 import logging
+import pprint
 
 from django.conf import settings
 from django.contrib import auth, messages
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
-from django.template import RequestContext
 from django.template.loader import render_to_string
 from django.utils.translation import ugettext as _
-from django.shortcuts import render_to_response
-from django.core import urlresolvers
 from django.views.decorators.csrf import csrf_protect, csrf_exempt, ensure_csrf_cookie
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth.views import login
+from django.contrib.auth.signals import user_logged_in
 
 # auth own stuff
 from secure_js_login.models import CNONCE_CACHE, UserProfile
@@ -161,8 +160,6 @@ def get_salt(request):
     return the user password salt.
     If the user doesn't exist return a pseudo salt.
     """
-    log.debug("get_salt() requested.")
-
     if not "username" in request.POST:
         log.error("No 'username' in POST data?!?")
         return HttpResponseBadRequest()
@@ -172,7 +169,6 @@ def get_salt(request):
     form = UsernameForm(request.POST)
     if form.is_valid():
         username = form.cleaned_data["username"]
-        log.debug("Get profile for user: %s", username)
         try:
             user, user_profile = form.get_user_and_profile()
         except ObjectDoesNotExist as err:
@@ -204,8 +200,23 @@ def get_salt(request):
         log.debug("Use pseudo salt!!!")
         init_pbkdf2_salt = crypt.get_pseudo_salt(app_settings.PBKDF2_SALT_LENGTH, username)
 
-    log.debug("send init_pbkdf2_salt %r to client.", init_pbkdf2_salt)
+    # log.debug("send init_pbkdf2_salt %r to client.", init_pbkdf2_salt)
     return HttpResponse(init_pbkdf2_salt, content_type="text/plain")
+
+
+def display_login_info(sender, user, request, **kwargs):
+    """
+    Create a message, after login.
+
+    Because this signal receiver will be called **after** auth.models.update_last_login(), the
+    user.last_login information was updated before!
+
+    As a work-a-round, we add **user.previous_login** in forms.SecureLoginForm.clean()
+    """
+    message = render_to_string('secure_js_login/login_info.html', {"last_login":user.previous_login})
+    messages.success(request, message)
+
+user_logged_in.connect(display_login_info)
 
 
 def secure_js_login(request):
@@ -213,9 +224,15 @@ def secure_js_login(request):
     FIXME:
         * Don't send a inserted password back, if form is not valid
     """
-    # create a new challenge and add it to session
-    server_challenge = _get_server_challenge(request)
-    log.debug("secure_js_login() POST data: %r", request.POST)
+    if request.method == 'GET':
+        # create a new challenge and add it to session
+        server_challenge = _get_server_challenge(request)
+    elif request.method == 'POST':
+        # log.debug("secure_js_login() POST data:\n%s", pprint.pformat(request.POST))
+        server_challenge = None # Will be get from session in secureLoginForm()
+    else:
+        return HttpResponseBadRequest
+
     return login(request,
         template_name="secure_js_login/sha_form.html",
         # redirect_field_name=REDIRECT_FIELD_NAME,
@@ -232,8 +249,6 @@ def secure_js_login(request):
             "CSRF_COOKIE_NAME": settings.CSRF_COOKIE_NAME,
         }
     )
-
-
 
 
 def _logout_view(request):

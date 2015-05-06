@@ -45,9 +45,7 @@ class UsernameForm(forms.Form):
         super(UsernameForm, self).__init__(*args, **kwargs)
 
     def get_user(self):
-        log.debug("get user")
         if not self.user_cache:
-            log.debug("111 %s", self.cleaned_data)
             username = self.cleaned_data["username"]
             try:
                 self.user_cache = get_user_model().objects.get(username=username)
@@ -59,7 +57,6 @@ class UsernameForm(forms.Form):
             if not self.user_cache.is_active:
                 raise WrongUserError("User %r is not active!" % self.user_cache)
 
-        log.debug("Used cached user: %s", self.user_cache)
         return self.user_cache
 
     def get_user_and_profile(self):
@@ -109,7 +106,7 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
         raise forms.ValidationError(msg)
 
     def clean(self):
-        log.debug("Form cleaned data: %r", self.cleaned_data)
+        # log.debug("Form cleaned data: %r", self.cleaned_data)
 
         username = self.cleaned_data.get('username')
         if not username:
@@ -139,6 +136,14 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
             log.debug("Challenge from session: %r", server_challenge)
 
         user, user_profile = self.get_user_and_profile()
+        user.previous_login = user.last_login # Save for: secure_js_login.views.display_login_info()
+
+        # crypt._simulate_client(
+        #     plaintext_password="12345678",
+        #     init_pbkdf2_salt=user_profile.init_pbkdf2_salt,
+        #     cnonce=cnonce,
+        #     server_challenge=server_challenge
+        # )
 
         kwargs = {
             "username":username,
@@ -164,7 +169,6 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
 
 
     def clean_password(self):
-        log.debug("clean password")
         password = self.cleaned_data["password"]
         if password.count("$") != 2:
             self._raise_validate_error(
@@ -179,7 +183,7 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
         PBKDF2_HALF_HEX_Validator.validate(second_pbkdf2_part)
         CLIENT_NONCE_HEX_Validator.validate(cnonce)
 
-        log.debug("Password data is valid.")
+        # log.debug("Password data is valid.")
         return (pbkdf2_hash, second_pbkdf2_part, cnonce)
 
 
