@@ -18,7 +18,6 @@ class TestUserProfile(SimpleTestCase, UserTestCaseMixin):
         user = self.create_and_get_superuser()
         user_profile = UserProfile.objects.get_user_profile(user)
         self.assertEqual(user.pk, user_profile.user.pk)
-        print(user_profile)
 
     def test_get_profile(self):
         user = self.create_and_get_superuser()
@@ -28,6 +27,24 @@ class TestUserProfile(SimpleTestCase, UserTestCaseMixin):
         encrypted_part = user_profile.encrypted_part
 
         self.assertEqual(len(init_pbkdf2_salt), app_settings.PBKDF2_SALT_LENGTH)
+        # self.assertEqual(len(encrypted_part), crypt.PBKDF2_HALF_HEX_LENGTH)
 
+        # Check the created data:
+        cnonce="1"
+        server_challenge="2"
+        pbkdf2_hash, second_pbkdf2_part = crypt._simulate_client(
+            plaintext_password=self.SUPER_USER_PASS,
+            init_pbkdf2_salt=init_pbkdf2_salt,
+            cnonce=cnonce,
+            server_challenge=server_challenge,
+        )
 
-        self.assertEqual(len(encrypted_part), crypt.PBKDF2_HALF_HEX_LENGTH)
+        check = crypt.check_secure_js_login(
+            encrypted_part,
+            server_challenge,
+            pbkdf2_hash,
+            second_pbkdf2_part,
+            cnonce
+        )
+        self.assertTrue(check)
+
