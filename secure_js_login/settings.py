@@ -20,7 +20,7 @@ USE_HONYPOT = getattr(settings, "USE_HONYPOT", False)
 #   * **ITERATIONS1** should be not changed if passwords already stored in database!
 #   * **ITERATIONS2** can be changed very time!
 ITERATIONS1 = getattr(settings, "ITERATIONS1", 100) # for storing a part of the password in the database
-ITERATIONS2 = getattr(settings, "ITERATIONS2", 100) # for generate on-the-fly the server challenge
+ITERATIONS2 = getattr(settings, "ITERATIONS2", 50) # for generate on-the-fly the server challenge
 
 # Length of the generated PBKDF2 hash in bytes:
 PBKDF2_BYTE_LENGTH = getattr(settings, "PBKDF2_BYTE_LENGTH", 32) # max length: 256 by model field!
