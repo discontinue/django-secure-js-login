@@ -17,7 +17,7 @@ cd example_project
 echo
 (
     set -x
-    rm db.sqlite3
+    rm example_project_db.sqlite3
     ./manage.py migrate
     echo "from django.contrib.auth.models import User; User.objects.create_superuser('test', 'test@test.com', '12345678')" | ./manage.py shell
 )
