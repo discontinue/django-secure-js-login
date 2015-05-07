@@ -45,16 +45,22 @@ class UsernameForm(forms.Form):
         self.user_cache = None
         super(UsernameForm, self).__init__(*args, **kwargs)
 
+    def _raise_validate_error(self, msg):
+        log.debug(msg)
+        if not settings.DEBUG:
+            msg = self.error_messages['invalid_login']
+        raise forms.ValidationError(msg)
+
     def get_user(self):
         if not self.user_cache:
             username = self.cleaned_data["username"]
             try:
                 self.user_cache = get_user_model().objects.get(username=username)
             except ObjectDoesNotExist as err:
-                raise WrongUserError("User %r doesn't exists!" % username)
+                raise self._raise_validate_error("User %r doesn't exists!" % username)
 
             if not self.user_cache.is_active:
-                raise WrongUserError("User %r is not active!" % self.user_cache)
+                raise self._raise_validate_error("User %r is not active!" % self.user_cache)
 
         return self.user_cache
 
@@ -72,20 +78,21 @@ CLIENT_DATA_LEN = crypt.PBKDF2_HEX_LENGTH + crypt.PBKDF2_HALF_HEX_LENGTH + app_s
 
 
 class HashValidator(object):
-    def __init__(self, length):
+    def __init__(self, name, length):
+        self.name = name
         self.length = length
         self.regexp = re.compile(r"^[a-f0-9]{%i}$" % length)
 
     def validate(self, value):
         if len(value)!=self.length:
-            raise ValidationError("length error")
+            raise ValidationError("%s length error" % self.name)
 
         if not self.regexp.match(value):
-            raise ValidationError("regexp error")
+            raise ValidationError("%s regexp error" % self.name)
 
-PBKDF2_HEX_Validator = HashValidator(length=crypt.PBKDF2_HEX_LENGTH)
-PBKDF2_HALF_HEX_Validator = HashValidator(length=crypt.PBKDF2_HALF_HEX_LENGTH)
-CLIENT_NONCE_HEX_Validator = HashValidator(length=app_settings.CLIENT_NONCE_LENGTH)
+PBKDF2_HASH_Validator = HashValidator(name="pbkdf2_hash", length=crypt.PBKDF2_HEX_LENGTH)
+SECOND_PBKDF2_PART_Validator = HashValidator(name="second_pbkdf2_part", length=crypt.PBKDF2_HALF_HEX_LENGTH)
+CLIENT_NONCE_HEX_Validator = HashValidator(name="cnonce", length=app_settings.CLIENT_NONCE_LENGTH)
 
 
 class SecureLoginForm(UsernameForm, AuthenticationForm):
@@ -99,30 +106,29 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
         widget=forms.PasswordInput
     )
 
-    def _raise_validate_error(self, msg):
-        # log.debug(msg)
-        if not settings.DEBUG:
-            msg = self.error_messages['invalid_login']
-        raise forms.ValidationError(msg)
-
     def clean(self):
-        # log.debug("Form cleaned data: %r", self.cleaned_data)
+        try:
+            username = self.cleaned_data['username']
+        except KeyError as err:
+            # e.g.: username field validator has cleaned the value
+            log.debug("No 'username' - Form errors: %r", self.errors)
+            return
+
+        try:
+            pbkdf2_hash, second_pbkdf2_part, cnonce = self.cleaned_data['password']
+        except KeyError as err:
+            # e.g.: password field validator has cleaned the value
+            log.debug("No 'password' - Form errors: %r", self.errors)
+            return
+        except TypeError as err:
+            self._raise_validate_error("Wrong password data: %s" % err)
+
+        self.cleaned_data["password"] = "" # Don't send password back
 
         server_challenge = self.request.old_server_challenge
         if not server_challenge:
             self._raise_validate_error("request.old_server_challenge not set.")
-        # log.debug("Challenge from session: %r", server_challenge)
-
-        username = self.cleaned_data.get('username')
-        if not username:
-            self._raise_validate_error("No Username?!?")
-
-        try:
-            pbkdf2_hash, second_pbkdf2_part, cnonce = self.cleaned_data.get('password')
-        except TypeError as err:
-            self._raise_validate_error("Wrong password data: %s" % err)
-
-        self.cleaned_data["password"] = ""
+        log.debug("Challenge from session: %r", server_challenge)
 
         # Simple check if 'nonce' from client used in the past.
         # Limitations:
@@ -139,13 +145,6 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
             self._raise_validate_error("Can't get user+profile: %s" % err)
 
         user.previous_login = user.last_login # Save for: secure_js_login.views.display_login_info()
-
-        # crypt._simulate_client(
-        #     plaintext_password="12345678",
-        #     init_pbkdf2_salt=user_profile.init_pbkdf2_salt,
-        #     cnonce=cnonce,
-        #     server_challenge=server_challenge
-        # )
 
         kwargs = {
             "username":username,
@@ -181,8 +180,8 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
 
         pbkdf2_hash, second_pbkdf2_part, cnonce = password.split("$")
 
-        PBKDF2_HEX_Validator.validate(pbkdf2_hash)
-        PBKDF2_HALF_HEX_Validator.validate(second_pbkdf2_part)
+        PBKDF2_HASH_Validator.validate(pbkdf2_hash)
+        SECOND_PBKDF2_PART_Validator.validate(second_pbkdf2_part)
         CLIENT_NONCE_HEX_Validator.validate(cnonce)
 
         # log.debug("Password data is valid.")

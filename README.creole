@@ -124,6 +124,7 @@ to run the Live-Server-Tests, install [[https://pypi.python.org/pypi/selenium|se
 * v0.2.0 - dev:
 ** code cleanup
 ** Docu update
+** increase default PBKDF2 iteration after test on a Raspberry Pi 1
 * v0.1.0 - 06.05.2015:
 ** initial release as reuseable app
 ** Use PBKDF2

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#ETH=$(dmesg | grep -Eo 'eth[[:digit:]]+' | tail -n1)
-#IP=$(ifconfig ${ETH} | head -n2 | tail -n1 | cut -d: -f2 | cut -d" " -f1)
-IP=127.0.0.1
+ETH=$(dmesg | grep -Eo 'eth[[:digit:]]+' | tail -n1)
+IP=$(ifconfig ${ETH} | head -n2 | tail -n1 | cut -d: -f2 | cut -d" " -f1)
+#IP=127.0.0.1
 
 CMD=runserver
 #echo -n "Use 'runserver_plus' [y/n]: "

@@ -10,18 +10,19 @@
 """
 
 from __future__ import unicode_literals
+import traceback
 
 import unittest
 
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
+import sys
 
-from django.conf import settings
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 
 try:
     import selenium
     from selenium import webdriver
-    from selenium.common.exceptions import WebDriverException
+    from selenium.common.exceptions import WebDriverException, UnexpectedAlertPresentException
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions
@@ -30,14 +31,46 @@ except ImportError as err:
 else:
     selenium_import_error = None
 
-from tests.test_utils.test_cases import UserTestCaseMixin
+from tests.test_utils.test_cases import SecureLoginBaseTestCase
+
+
+class SeleniumVerboseAssert(object):
+    def _verbose_assertion_error(self, page_source, err):
+        print("\n", flush=True, file=sys.stderr)
+        print("*" * 79, file=sys.stderr)
+        traceback.print_exc()
+        print(" -" * 40, file=sys.stderr)
+        page_source = "\n".join([line for line in page_source.splitlines() if line.rstrip()])
+        print(page_source, file=sys.stderr)
+        print("*" * 79, file=sys.stderr)
+        print("\n", flush=True, file=sys.stderr)
+        raise
+
+    def assertEqualTitle(self, should):
+        try:
+            self.assertEqual(self.driver.title, should)
+        except AssertionError as err:
+            self._verbose_assertion_error(self.driver.page_source, err)
+
+    def assertInPageSource(self, member):
+        try:
+            self.assertIn(member, self.driver.page_source)
+        except AssertionError as err:
+            self._verbose_assertion_error(self.driver.page_source, err)
+
+    def assertNotInPageSource(self, member):
+        try:
+            self.assertNotIn(member, self.driver.page_source)
+        except AssertionError as err:
+            self._verbose_assertion_error(self.driver.page_source, err)
 
 
 @unittest.skipUnless(selenium_import_error is None, selenium_import_error)
-class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
+class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumVerboseAssert):
     """
     http://selenium-python.readthedocs.org/
     """
+
     @classmethod
     def setUpClass(cls):
         super(SeleniumTests, cls).setUpClass()
@@ -45,28 +78,35 @@ class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
 
     @classmethod
     def tearDownClass(cls):
-        cls.driver.quit()
+        try:
+            cls.driver.quit()
+        except:
+            pass
         super(SeleniumTests, cls).tearDownClass()
 
     def setUp(self):
         super(SeleniumTests, self).setUp()
         self.driver.delete_all_cookies()
-        self.TEST_SUPERUSER = self.create_and_get_superuser()
 
     def test_example_index_page(self):
         self.driver.get('%s%s' % (self.live_server_url, '/'))
-        self.assertEqual(self.driver.title,
+        self.assertEqualTitle(
             "Django secure-js-login example project"
         )
-        page_source = self.driver.page_source
-        self.assertIn('<a href="/secure_login/">', page_source)
-        self.assertIn('<a href="/login/">', page_source) # honypot login
-        self.assertIn('<a href="/admin/">', page_source) # Django Admin login
+        self.assertEqualTitle("Django secure-js-login example project")
+
+        self.assertInPageSource('<a href="/secure_login/">')
+        self.assertInPageSource('<a href="/login/">') # honypot login
+        self.assertInPageSource('<a href="/admin/">') # Django Admin login
+        self.assertInPageSource('<a href="/admin/">') # Django Admin login
+        self.assertNotInPageSource('error')
 
     def test_django_plaintext_login_success(self):
         self.driver.get('%s%s' % (self.live_server_url, "/admin/"))
         # print(self.firefox.page_source)
-        self.assertEqual(self.driver.title, "Log in | Django site admin")
+        self.assertEqualTitle("Log in | Django site admin")
+
+        self.assertNotInPageSource("Secure-JS-Login")
 
         username_input = self.driver.find_element_by_name("username")
         username_input.send_keys(self.SUPER_USER_NAME)
@@ -74,17 +114,16 @@ class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
         password_input.send_keys(self.SUPER_USER_PASS)
         self.driver.find_element_by_xpath('//input[@value="Log in"]').click()
 
-        page_source = self.driver.page_source
-        self.assertNotIn("Error", page_source)
-
-        self.assertEqual(self.driver.title, "Site administration | Django site admin")
-        self.assertIn(self.SUPER_USER_NAME, page_source)
-        self.assertIn("Log out", page_source)
+        self.assertNotInPageSource("Error")
+        self.assertNotInPageSource("Please enter the correct username")
+        self.assertEqualTitle("Site administration | Django site admin")
+        self.assertInPageSource(self.SUPER_USER_NAME)
+        self.assertInPageSource("Log out")
 
     def test_django_plaintext_login_wrong_password(self):
         self.driver.get('%s%s' % (self.live_server_url, "/admin/"))
         # print(self.firefox.page_source)
-        self.assertEqual(self.driver.title, "Log in | Django site admin")
+        self.assertEqualTitle("Log in | Django site admin")
 
         username_input = self.driver.find_element_by_name("username")
         username_input.send_keys(self.SUPER_USER_NAME)
@@ -93,12 +132,11 @@ class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
         self.driver.find_element_by_xpath('//input[@value="Log in"]').click()
         # print(self.firefox.page_source)
 
-        self.assertEqual(self.driver.title, "Log in | Django site admin")
-        self.assertIn(
-            "Please enter the correct username and password for a staff account.",
-            self.driver.page_source
+        self.assertEqualTitle("Log in | Django site admin")
+        self.assertInPageSource(
+            "Please enter the correct username and password for a staff account."
         )
-        
+
     def _submit_secure_login(self, username, password):
         """
         Request secure-js-login page and submit given username/password
@@ -108,11 +146,11 @@ class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
         # print(self.firefox.page_source)
 
         # self.assertInHTML( # Will failed, because tags are escaped inner noscript, why?
-        #     '<noscript><p class="errornote">Please enable JavaScript!</p></noscript>',
+        # '<noscript><p class="errornote">Please enable JavaScript!</p></noscript>',
         #     self.firefox.page_source
         # )
-        self.assertIn('<noscript>', self.driver.page_source)
-        self.assertIn("Please enable JavaScript!", self.driver.page_source)
+        self.assertInPageSource('<noscript>')
+        self.assertInPageSource("Please enable JavaScript!")
 
         # Test if precheck was ok
         self.assertEqual(
@@ -152,14 +190,29 @@ class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
         self.driver.find_element_by_xpath('//input[@value="Log in"]').click()
 
     def _wait_until_reload(self):
-        check = WebDriverWait(self.driver, 10).until(
-            # expected_conditions.staleness_of(self.track_element)
-            expected_conditions.staleness_of(self.body)
-        )
+        try:
+            check = WebDriverWait(self.driver, 10).until(
+                # expected_conditions.staleness_of(self.track_element)
+                expected_conditions.staleness_of(self.body)
+            )
+        except UnexpectedAlertPresentException as err:
+            print("\n\nPage is reloaded?!? - %s" % err)
+            check = True
+            import time
+            time.sleep(10)
+            print(self.driver.page_source)
+            raise
+        except Exception as err:
+            print("\n\nError: %s" % err)
+            import time
+            time.sleep(10)
+            print(self.driver.page_source)
+            raise
+
         self.body = None
         self.track_element = None
         self.assertTrue(check)
-        
+
     def _secure_login(self, username, password):
         """
         Fill given username/password to secure-js-login page
@@ -167,24 +220,6 @@ class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
         """
         self._submit_secure_login(username, password)
         self._wait_until_reload()
-
-    def assertSecureLoginSuccess(self, page_source):
-        try:
-            self.assertIn("You are logged in.", page_source)
-            self.assertIn("Last login was:", page_source)
-            self.assertIn(self.SUPER_USER_NAME, page_source)
-            self.assertIn("Log out", page_source)
-            self.assertNotIn("Error", page_source)
-        except AssertionError as err:
-            # import time
-            # time.sleep(10)
-            raise
-
-    def assertSecureLoginFailed(self, page_source):
-        self.assertNotIn("You are logged in.", page_source)
-        self.assertNotIn("Last login was:", page_source)
-        self.assertNotIn("Log out", page_source)
-        self.assertIn("Error", page_source)
 
     def test_secure_login_success(self):
         self._secure_login(

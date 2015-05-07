@@ -11,46 +11,36 @@
 
 from __future__ import unicode_literals
 
-import os
-
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
 
-from django.test import SimpleTestCase
-
 from secure_js_login.models import UserProfile
-from tests.test_utils.test_cases import UserTestCaseMixin
+from tests.test_utils.test_cases import SecureLoginBaseTestCase
 from secure_js_login import settings as app_settings
 from secure_js_login.utils import crypt
 
 
-class TestUserProfile(SimpleTestCase, UserTestCaseMixin):
-    def test_get_profile(self):
-        user = self.create_and_get_superuser()
-        user_profile = UserProfile.objects.get_user_profile(user)
-        self.assertEqual(user.pk, user_profile.user.pk)
+class TestUserProfile(SecureLoginBaseTestCase):
+    def test_set_password(self):
+        old_init_pbkdf2_salt = self.superuser_profile.init_pbkdf2_salt
+        old_encrypted_part = self.superuser_profile.encrypted_part
 
-    def test_get_profile(self):
-        user = self.create_and_get_superuser()
-        user_profile = UserProfile.objects.get_user_profile(user)
+        self.superuser.set_password("New password")
 
-        init_pbkdf2_salt = user_profile.init_pbkdf2_salt
-        encrypted_part = user_profile.encrypted_part
-
-        self.assertEqual(len(init_pbkdf2_salt), app_settings.PBKDF2_SALT_LENGTH)
-        # self.assertEqual(len(encrypted_part), crypt.PBKDF2_HALF_HEX_LENGTH)
+        fresh_user_profile = UserProfile.objects.get_user_profile(self.superuser)
+        self.assertNotEqual(old_init_pbkdf2_salt, fresh_user_profile.init_pbkdf2_salt)
+        self.assertNotEqual(old_encrypted_part, fresh_user_profile.encrypted_part)
 
         # Check the created data:
         cnonce="1"
         server_challenge="2"
         pbkdf2_hash, second_pbkdf2_part = crypt._simulate_client(
-            plaintext_password=self.SUPER_USER_PASS,
-            init_pbkdf2_salt=init_pbkdf2_salt,
+            plaintext_password="New password",
+            init_pbkdf2_salt=fresh_user_profile.init_pbkdf2_salt,
             cnonce=cnonce,
             server_challenge=server_challenge,
         )
-
         check = crypt.check_secure_js_login(
-            encrypted_part,
+            fresh_user_profile.encrypted_part,
             server_challenge,
             pbkdf2_hash,
             second_pbkdf2_part,
