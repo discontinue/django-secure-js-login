@@ -327,7 +327,8 @@ class XorCryptor(object):
 
         try:
             crypted = binascii.unhexlify(crypted)
-        except binascii.Error as err:
+        except (binascii.Error, TypeError) as err:
+            # Py2 will raise TypeError - Py3 the binascii.Error
             raise CryptError("unhexlify error: %s with data: %s" % (err, repr(crypted)))
 
         if len(crypted) != len(key):
