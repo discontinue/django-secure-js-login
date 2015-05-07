@@ -2,8 +2,10 @@
 
 JavaScript Challenge-handshake authentication django app.
 
+| {{https://travis-ci.org/jedie/django-secure-js-login.svg|Build Status on travis-ci.org}} | [[https://travis-ci.org/jedie/django-secure-js-login/|travis-ci.org/jedie/django-secure-js-login]] |
+
 First:
-The JS-SHA1-Login is not a simple //"send username + SHA(password)"//
+The Secure-JS-Login is not a simple //"send username + PBKDF2-SHA(password)"//
 It is more a [[http://en.wikipedia.org/wiki/Challenge-handshake_authentication_protocol|Challenge-handshake authentication protocol]]!
 
 TODO:
@@ -51,22 +53,22 @@ Server part:
 # compare **test_hash** with transmitted **pbkdf2_hash**
 
 
-=== secure?
+== secure?
 
-JS-SHA1 Login is not really secure in comparison to https! e.g. the client can't validate if he really communicate with the server or with a [[http://en.wikipedia.org/wiki/Man-in-the-middle|Man-in-the-middle]]. JS-SHA1-Login does not protect you against an [[http://en.wikipedia.org/wiki/Session_Hijacking|Session Hijacking]]
+Secure-JS-Login is not really secure in comparison to https! e.g. the client can't validate if he really communicate with the server or with a [[https://en.wikipedia.org/wiki/Man-in-the-middle_attack|Man-in-the-middle attack]].
 
 However the used procedure is safer than plain-text authentication. In addition, on the server no plain-text passwords are stored. With the data that are stored on the server, can not be used alone.
 
-If you have [[http://en.wikipedia.org/wiki/HTTPS|https]], you can combine it with JS-SHA1 login, similar to combine a digest auth with https.
+If you have [[http://en.wikipedia.org/wiki/HTTPS|https]], you can combine it with Secure-JS-Login, similar to combine a digest auth with https.
 
-More information: [[http://www.pylucid.org/permalink/35/warum-js-sha-login-sinn-macht|Warum JS-SHA-Login Sinn macht...]] (german only, sorry)
+More information: [[http://www.pylucid.org/permalink/35/warum-js-sha-login-sinn-macht|Warum Secure-JS-Login Sinn macht...]] (german only, sorry)
 
 
 === why?
 
 Many, if not even all CMS/wiki/forum, used unsecure Login. User name and password send in **plaintext** over the Internet. A reliable solution offers only [[http://en.wikipedia.org/wiki/HTTPS|https]].
 
-The Problem: No Provider offers secured HTTP connection for little money :( We have been thinking, how can we still accomplish a secure authentication.
+The Problem: No Provider offers secured HTTP connection for little money :(
 
 
 === alternative solutions
@@ -79,7 +81,71 @@ The Problem: No Provider offers secured HTTP connection for little money :( We h
 *** used old MD5 hash
 
 
-=== Used JavaScript Implementations
+== tryout
+
+e.g.:
+{{{
+~ $ virtualenv secure-js-login-env
+~ $ cd secure-js-login-env
+~/secure-js-login-env $ source bin/activate
+
+# install secure-js-login as "editable" to have access to example project server and unittests:
+
+(secure-js-login-env)~/secure-js-login-env $ pip install -e git+git://github.com/jedie/django-secure-js-login.git#egg=django-secure-js-login
+
+run example project server:
+{{{
+(secure-js-login-env)~/secure-js-login-env $ cd src/django-secure-js-login/
+(secure-js-login-env)~/secure-js-login-env/src/django-secure-js-login $ ./run_example_server.sh
+}}}
+
+run inittests:
+{{{
+(secure-js-login-env)~/secure-js-login-env/src/django-secure-js-login $ ./runtests.py
+}}}
+
+to run the Live-Server-Tests, install [[https://pypi.python.org/pypi/selenium|selenium]] e.g.:
+{{{
+(secure-js-login-env)~/secure-js-login-env/src/django-secure-js-login $ pip install selenium
+(secure-js-login-env)~/secure-js-login-env/src/django-secure-js-login $ ./runtests.py
+}}}
+
+
+== Version compatibility
+
+|= secure-js-login |= Django    |= Python
+|>=v0.1.0          | v1.7, v1.8 | v2.7, v3.4
+
+(These are the unittests variants. Maybe other versions are compatible, too.)
+
+
+== changelog
+
+* v0.2.0 - dev:
+** code cleanup
+** Docu update
+* v0.1.0 - 06.05.2015:
+** initial release as reuseable app
+
+
+== info links
+
+* Python-Forum Threads (de):
+** [[http://www.python-forum.de/viewtopic.php?f=7&t=22163|Digest auth als Alternative?]] (03.2010)
+** [[http://www.python-forum.de/viewtopic.php?f=3&t=8180|Sinn oder Unsinn des PyLucids Secure-JS-Login...]] (12.2006)
+** [[http://www.python-forum.de/topic-8182.html|Wie Session-Hijacking verhindern?]] (12.2006)
+** [[http://www.python-forum.de/viewtopic.php?t=3345|html-LogIn: Passwort mit SHA1]] (06.2005)
+* [[http://groups.google.de/group/de.comp.lang.python/browse_thread/thread/8c06df736e8183f9/64b7183d860c4bf9?#64b7183d860c4bf9|Diskussion auf de.comp.lang.python]] (08.2006)
+
+
+== project links
+
+| Github              | [[http://github.com/jedie/django-secure-js-login]]
+| Python Packages     | [[http://pypi.python.org/pypi/django-secure-js-login/]]
+| Travis CI           | [[https://travis-ci.org/jedie/django-secure-js-login/]]
+
+
+== Used JavaScript Implementations
 
 * SHA1 - JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined in FIPS 180-1
 ** http://pajhome.org.uk/crypt/md5/sha1.html
@@ -93,13 +159,9 @@ The Problem: No Provider offers secured HTTP connection for little money :( We h
 ** Distributed under the BSD license
 ** Stored under: [[https://github.com/jedie/django-secure-js-login/blob/master/secure_js_login/static/secure_js_login/pbkdf2.js|secure_js_login/static/secure_js_login/pbkdf2.js]]
 
+== contact
 
-=== Links
+Come into the conversation, besides the github communication features:
 
-* [[http://pajhome.org.uk/crypt/md5/sha1.html|SHA1 JavaScript implementation by Paul Johnston]] (BSD License)
-* Python-Forum Threads (de):
-** [[http://www.python-forum.de/viewtopic.php?f=7&t=22163|Digest auth als Alternative?]] (03.2010)
-** [[http://www.python-forum.de/viewtopic.php?f=3&t=8180|Sinn oder Unsinn des PyLucids JS-SHA1-Login...]] (12.2006)
-** [[http://www.python-forum.de/topic-8182.html|Wie Session-Hijacking verhindern?]] (12.2006)
-** [[http://www.python-forum.de/viewtopic.php?t=3345|html-LogIn: Passwort mit SHA1]] (06.2005)
-* [[http://groups.google.de/group/de.comp.lang.python/browse_thread/thread/8c06df736e8183f9/64b7183d860c4bf9?#64b7183d860c4bf9|Diskussion auf de.comp.lang.python]] (08.2006)
+| IRC     | #pylucid on freenode.net (Yes, the PyLucid channel...)
+| webchat | https://webchat.freenode.net/?channels=pylucid
