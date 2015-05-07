@@ -11,35 +11,29 @@
 
 from __future__ import unicode_literals
 
-import os
+import unittest
 
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
-assert os.environ["DJANGO_SETTINGS_MODULE"]=="tests.test_utils.test_settings"
 
 from django.conf import settings
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 
-from selenium import webdriver
-from selenium.common.exceptions import WebDriverException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions
+try:
+    import selenium
+    from selenium import webdriver
+    from selenium.common.exceptions import WebDriverException
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions
+except ImportError as err:
+    selenium_import_error = err
+else:
+    selenium_import_error = None
 
 from tests.test_utils.test_cases import UserTestCaseMixin
 
-# https://github.com/jedie/django-tools/
-try:
-    import django_tools
-except ImportError as err:
-    msg = (
-        "Please install django-tools for unittests"
-        " - https://github.com/jedie/django-tools/"
-        " - Original error: %s"
-    ) % err
-    raise ImportError(msg)
-from django_tools.unittest_utils.BrowserDebug import debug_response
 
-
+@unittest.skipUnless(selenium_import_error is None, selenium_import_error)
 class SeleniumTests(StaticLiveServerTestCase, UserTestCaseMixin):
     """
     http://selenium-python.readthedocs.org/
