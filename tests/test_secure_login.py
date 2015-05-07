@@ -19,24 +19,20 @@ from django.utils import six
 from secure_js_login.models import UserProfile
 from secure_js_login.utils import crypt
 
-if __name__ == "__main__":
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.test_utils.test_settings'
-    print("\nUse DJANGO_SETTINGS_MODULE=%r" % os.environ["DJANGO_SETTINGS_MODULE"])
-
 from django.core.urlresolvers import reverse
 from django.test import SimpleTestCase
 
 # https://github.com/jedie/django-tools/
-try:
-    import django_tools
-except ImportError as err:
-    msg = (
-        "Please install django-tools for unittests"
-        " - https://github.com/jedie/django-tools/"
-        " - Original error: %s"
-    ) % err
-    raise ImportError(msg)
-from django_tools.unittest_utils.BrowserDebug import debug_response
+# try:
+#     import django_tools
+# except ImportError as err:
+#     msg = (
+#         "Please install django-tools for unittests"
+#         " - https://github.com/jedie/django-tools/"
+#         " - Original error: %s"
+#     ) % err
+#     raise ImportError(msg)
+# from django_tools.unittest_utils.BrowserDebug import debug_response
 
 from secure_js_login import settings as app_settings
 

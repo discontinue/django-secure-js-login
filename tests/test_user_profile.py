@@ -14,7 +14,6 @@ from __future__ import unicode_literals
 import os
 
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
-assert os.environ["DJANGO_SETTINGS_MODULE"]=="tests.test_utils.test_settings"
 
 from django.test import SimpleTestCase
 
