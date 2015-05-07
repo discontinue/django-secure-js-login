@@ -28,6 +28,7 @@ class SecureLoginAuthBackend(ModelBackend):
     """
     def authenticate(self, username=None, **kwargs):
         # log.debug("authenticate with SecureLoginAuthBackend")
+        # log.debug("Check with: %r" % repr(kwargs))
 
         if username is None:
             # log.error("No username given.")
@@ -39,7 +40,8 @@ class SecureLoginAuthBackend(ModelBackend):
 
         user = kwargs.pop("user")
 
-        # log.debug("Check with: %r" % repr(kwargs))
         check = crypt.check_secure_js_login(**kwargs)
         if check == True:
+            # log.debug("Check ok!")
             return user
+        # log.debug("Check failed!")

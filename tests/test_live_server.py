@@ -22,7 +22,8 @@ from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 try:
     import selenium
     from selenium import webdriver
-    from selenium.common.exceptions import WebDriverException, UnexpectedAlertPresentException
+    from selenium.common.exceptions import WebDriverException, UnexpectedAlertPresentException, \
+        StaleElementReferenceException
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions
@@ -45,6 +46,14 @@ class SeleniumVerboseAssert(object):
         print("*" * 79, file=sys.stderr)
         print("\n", flush=True, file=sys.stderr)
         raise
+
+    def assertNoJavaScriptAltert(self):
+        alert = expected_conditions.alert_is_present()(self.driver)
+        if alert != False:
+            try:
+                raise self.failureException("Alert is preset: %s" % alert.text)
+            except AssertionError as err:
+                self._verbose_assertion_error(self.driver.page_source, err)
 
     def assertEqualTitle(self, should):
         try:
@@ -75,6 +84,8 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
     def setUpClass(cls):
         super(SeleniumTests, cls).setUpClass()
         cls.driver = webdriver.Firefox()
+        cls.driver.set_window_size(800,600)
+        cls.driver.set_window_position(0,0)
 
     @classmethod
     def tearDownClass(cls):
@@ -183,35 +194,21 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
             password
         )
 
-        # self.track_element = self.driver.create_web_element("SELENIUM_PAGE_LOAD_TRACKING_ELEMENT")
         self.body = self.driver.find_element_by_css_selector('body')
+        self.assertTrue(self.body.is_enabled())
 
         # Submit the Form
         self.driver.find_element_by_xpath('//input[@value="Log in"]').click()
 
     def _wait_until_reload(self):
-        try:
-            check = WebDriverWait(self.driver, 10).until(
-                # expected_conditions.staleness_of(self.track_element)
-                expected_conditions.staleness_of(self.body)
-            )
-        except UnexpectedAlertPresentException as err:
-            print("\n\nPage is reloaded?!? - %s" % err)
-            check = True
-            import time
-            time.sleep(10)
-            print(self.driver.page_source)
-            raise
-        except Exception as err:
-            print("\n\nError: %s" % err)
-            import time
-            time.sleep(10)
-            print(self.driver.page_source)
-            raise
+        #print("\n\n%r\n\n" % self.driver.execute_script('return document.firstChild.innerHTML;'))
+        self.assertNoJavaScriptAltert()
 
-        self.body = None
-        self.track_element = None
+        check = WebDriverWait(self.driver, 10).until(
+            expected_conditions.staleness_of(self.body)
+        )
         self.assertTrue(check)
+        self.body = None
 
     def _secure_login(self, username, password):
         """

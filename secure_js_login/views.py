@@ -65,7 +65,9 @@ def get_salt(request):
     return the user password salt.
     If the user doesn't exist return a pseudo salt.
     """
-    if not "username" in request.POST:
+    try:
+        username = request.POST["username"]
+    except KeyError:
         # log.error("No 'username' in POST data?!?")
         return HttpResponseBadRequest()
 
@@ -73,33 +75,23 @@ def get_salt(request):
 
     form = UsernameForm(request.POST)
     if form.is_valid():
-        username = form.cleaned_data["username"]
-        try:
-            user, user_profile = form.get_user_and_profile()
-        except ObjectDoesNotExist as err:
-            msg = "Error getting user + profile: %s" % err
-            # log.error(msg)
-        else:
-            send_pseudo_salt=False
-    else:
-        username = request.POST["username"]
+        send_pseudo_salt=False
 
-    if not send_pseudo_salt: # Form not valid or wrong username
+        user_profile = form.user_profile
         init_pbkdf2_salt = user_profile.init_pbkdf2_salt
         if not init_pbkdf2_salt:
-            msg="No init_pbkdf2_salt set in user profile!"
-            # log.error(msg)
+            # log.error("No init_pbkdf2_salt set in user profile!")
             send_pseudo_salt=True
-        elif len(init_pbkdf2_salt)!=app_settings.PBKDF2_SALT_LENGTH:
-            msg = "Salt for user %r has wrong length: %r" % (request.POST["username"], init_pbkdf2_salt)
-            # log.error(msg)
+
+        if len(init_pbkdf2_salt)!=app_settings.PBKDF2_SALT_LENGTH:
+            # log.error("Salt for user %r has wrong length: %r" % (request.POST["username"], init_pbkdf2_salt))
             send_pseudo_salt=True
 
     if send_pseudo_salt:
-        # log.debug("Use pseudo salt!!!")
+        # log.debug("\nUse pseudo salt!!!")
         init_pbkdf2_salt = crypt.get_pseudo_salt(app_settings.PBKDF2_SALT_LENGTH, username)
 
-    # log.debug("send init_pbkdf2_salt %r to client.", init_pbkdf2_salt)
+    # log.debug("\nsend init_pbkdf2_salt %r to client.", init_pbkdf2_salt)
     return HttpResponse(init_pbkdf2_salt, content_type="text/plain")
 
 

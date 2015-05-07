@@ -37,38 +37,43 @@ class WrongUserError(ObjectDoesNotExist):
 
 
 class UsernameForm(forms.Form):
-    username = forms.CharField(max_length=30, label=_('Username'),
+    username = forms.CharField(
+        min_length=1,
+        max_length=30, label=_('Username'),
         help_text=_('Required. 30 characters or fewer. Alphanumeric characters only (letters, digits and underscores).')
     )
 
     def __init__(self, *args, **kwargs):
-        self.user_cache = None
+        self.user = None
+        self.user_profile = None
         super(UsernameForm, self).__init__(*args, **kwargs)
 
     def _raise_validate_error(self, msg):
-        log.debug(msg)
+        # log.debug(msg)
         if not settings.DEBUG:
             msg = self.error_messages['invalid_login']
         raise forms.ValidationError(msg)
 
-    def get_user(self):
-        if not self.user_cache:
-            username = self.cleaned_data["username"]
-            try:
-                self.user_cache = get_user_model().objects.get(username=username)
-            except ObjectDoesNotExist as err:
-                raise self._raise_validate_error("User %r doesn't exists!" % username)
+    def clean_username(self):
+        username = self.cleaned_data['username']
 
-            if not self.user_cache.is_active:
-                raise self._raise_validate_error("User %r is not active!" % self.user_cache)
+        try:
+            user = get_user_model().objects.get(username=username)
+        except ObjectDoesNotExist as err:
+            raise self._raise_validate_error("User %r doesn't exists!" % username)
 
-        return self.user_cache
+        if not user.is_active:
+            raise self._raise_validate_error("User %r is not active!" % user)
+        else:
+            self.user = user
 
-    def get_user_and_profile(self):
-        user = self.get_user()
-        assert isinstance(user, get_user_model())
-        user_profile = UserProfile.objects.get_user_profile(user)
-        return user, user_profile
+        try:
+            self.user_profile = UserProfile.objects.get_user_profile(self.user)
+        except ObjectDoesNotExist as err:
+            raise self._raise_validate_error(
+                "Profile for user %r doesn't exists!" % self.user.username
+            )
+        return username
 
 
 # PBKDF2_BYTE_LENGTH*2 + "$" + PBKDF2_BYTE_LENGTH + "$" + CLIENT_NONCE_LENGTH
@@ -95,7 +100,7 @@ SECOND_PBKDF2_PART_Validator = HashValidator(name="second_pbkdf2_part", length=c
 CLIENT_NONCE_HEX_Validator = HashValidator(name="cnonce", length=app_settings.CLIENT_NONCE_LENGTH)
 
 
-class SecureLoginForm(UsernameForm, AuthenticationForm):
+class SecureLoginForm(AuthenticationForm, UsernameForm):
     """
     data from the client as password:
         send pbkdf2_hash1, second-pbkdf2-part and cnonce to the server
@@ -111,8 +116,10 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
             username = self.cleaned_data['username']
         except KeyError as err:
             # e.g.: username field validator has cleaned the value
-            log.debug("No 'username' - Form errors: %r", self.errors)
+            # log.debug("No 'username' - Form errors: %r", self.errors)
             return
+
+        assert isinstance(self.user, get_user_model())
 
         try:
             pbkdf2_hash, second_pbkdf2_part, cnonce = self.cleaned_data['password']
@@ -128,7 +135,7 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
         server_challenge = self.request.old_server_challenge
         if not server_challenge:
             self._raise_validate_error("request.old_server_challenge not set.")
-        log.debug("Challenge from session: %r", server_challenge)
+        # log.debug("Challenge from session: %r", server_challenge)
 
         # Simple check if 'nonce' from client used in the past.
         # Limitations:
@@ -139,17 +146,12 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
 
         CNONCE_CACHE[cnonce] = None
 
-        try:
-            user, user_profile = self.get_user_and_profile()
-        except ObjectDoesNotExist as err:
-            self._raise_validate_error("Can't get user+profile: %s" % err)
-
-        user.previous_login = user.last_login # Save for: secure_js_login.views.display_login_info()
+        self.user.previous_login = self.user.last_login # Save for: secure_js_login.views.display_login_info()
 
         kwargs = {
             "username":username,
-            "user": user,
-            "encrypted_part": user_profile.encrypted_part,
+            "user": self.user,
+            "encrypted_part": self.user_profile.encrypted_part,
             "server_challenge":server_challenge,
             "pbkdf2_hash":pbkdf2_hash,
             "second_pbkdf2_part":second_pbkdf2_part,
@@ -167,7 +169,6 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
 
         self.confirm_login_allowed(user)
         return user
-
 
     def clean_password(self):
         password = self.cleaned_data["password"]
@@ -187,6 +188,9 @@ class SecureLoginForm(UsernameForm, AuthenticationForm):
         # log.debug("Password data is valid.")
         return (pbkdf2_hash, second_pbkdf2_part, cnonce)
 
+    def get_user(self):
+        # for django.auth.views.login
+        return self.user
 
 # class JSPasswordChangeForm(Sha1BaseForm):
 #     """
