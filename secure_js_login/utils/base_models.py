@@ -18,9 +18,6 @@ except ImportError:
     from datetime import datetime
     now = datetime.now
 
-from django_tools.middlewares import ThreadLocal
-
-
 class UpdateTimeBaseModel(models.Model):
     """
     Base model to automatically set:
