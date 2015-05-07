@@ -62,7 +62,7 @@ class HonypotPassword(models.Model):
 
 @python_2_unicode_compatible
 class HonypotIP(models.Model):
-    ip_address = models.IPAddressField(db_index=True)
+    ip_address = models.GenericIPAddressField(db_index=True)
     count = models.PositiveIntegerField(default=1,
         help_text=_("Number of logins from this remote IP address.")
     )
