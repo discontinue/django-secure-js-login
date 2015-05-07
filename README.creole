@@ -126,6 +126,15 @@ to run the Live-Server-Tests, install [[https://pypi.python.org/pypi/selenium|se
 ** Docu update
 * v0.1.0 - 06.05.2015:
 ** initial release as reuseable app
+** Use PBKDF2
+* 03.05.2015:
+** Split from [[https://github.com/jedie/PyLucid/tree/7ee6f8312e7ade65ff3604eb9eab810c26c43ccb/pylucid_project/pylucid_plugins/auth|PyLucid CMS 'auth' plugin]]
+* 03.2010:
+** [[http://www.python-forum.de/viewtopic.php?p=163746#p163746|Use ajax request via jQuery]] (de)
+* 11.07.2007:
+** [[http://www.python-forum.de/viewtopic.php?p=72926#p72926|New SHA challenge response procedure]] (de)
+* 01.06.2005:
+** [[http://www.python-forum.de/viewtopic.php?f=5&t=3345|first implementation of a MD5 login in PyLucid]] (de)
 
 
 == info links
@@ -134,8 +143,7 @@ to run the Live-Server-Tests, install [[https://pypi.python.org/pypi/selenium|se
 ** [[http://www.python-forum.de/viewtopic.php?f=7&t=22163|Digest auth als Alternative?]] (03.2010)
 ** [[http://www.python-forum.de/viewtopic.php?f=3&t=8180|Sinn oder Unsinn des PyLucids Secure-JS-Login...]] (12.2006)
 ** [[http://www.python-forum.de/topic-8182.html|Wie Session-Hijacking verhindern?]] (12.2006)
-** [[http://www.python-forum.de/viewtopic.php?t=3345|html-LogIn: Passwort mit SHA1]] (06.2005)
-* [[http://groups.google.de/group/de.comp.lang.python/browse_thread/thread/8c06df736e8183f9/64b7183d860c4bf9?#64b7183d860c4bf9|Diskussion auf de.comp.lang.python]] (08.2006)
+* [[https://groups.google.com/forum/#!topic/de.comp.lang.python/jAbfc26Bg_k|Diskussion auf de.comp.lang.python]] (08.2006)
 
 
 == project links
