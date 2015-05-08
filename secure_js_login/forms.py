@@ -43,6 +43,8 @@ class UsernameForm(forms.Form):
         help_text=_('Required. 30 characters or fewer. Alphanumeric characters only (letters, digits and underscores).')
     )
 
+    error_messages = AuthenticationForm.error_messages
+
     def __init__(self, *args, **kwargs):
         self.user = None
         self.user_profile = None
