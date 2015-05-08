@@ -15,7 +15,7 @@
     :license: GNU GPL v3 or above, see LICENSE for more details.
 """
 
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 
 import pprint
 import sys
@@ -25,6 +25,7 @@ from django.contrib.auth import get_user_model, authenticate
 from django.core.urlresolvers import reverse
 from django.db import IntegrityError
 from django.db.models.loading import get_models, get_app
+from django.http import HttpResponse
 from django.test import SimpleTestCase
 
 from secure_js_login.models import UserProfile
@@ -46,6 +47,19 @@ except ImportError as err:
 
 
 class AdditionalAssertmentsMixin(object):
+    def _verbose_assertion_error(self, page_source):
+        print("\n", flush=True, file=sys.stderr)
+        print("*" * 79, file=sys.stderr)
+        traceback.print_exc()
+        print(" -" * 40, file=sys.stderr)
+        if isinstance(page_source, HttpResponse):
+            page_source = page_source.content
+        page_source = "\n".join([line for line in page_source.splitlines() if line.rstrip()])
+        print(page_source, file=sys.stderr)
+        print("*" * 79, file=sys.stderr)
+        print("\n", flush=True, file=sys.stderr)
+        raise
+
     def assertContainsHtml(self, response, *args):
         for html in args:
             try:
@@ -70,7 +84,7 @@ class AdditionalAssertmentsMixin(object):
             self.assertIn("Log out", page_source)
             self.assertNotIn("Error", page_source)
         except AssertionError as err:
-            self._verbose_assertion_error(page_source, err)
+            self._verbose_assertion_error(page_source)
             raise
 
     def assertSecureLoginFailed(self, page_source):
@@ -80,7 +94,7 @@ class AdditionalAssertmentsMixin(object):
             self.assertNotIn("Log out", page_source)
             self.assertIn("Error", page_source)
         except AssertionError as err:
-            self._verbose_assertion_error(page_source, err)
+            self._verbose_assertion_error(page_source)
             raise
 
 

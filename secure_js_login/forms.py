@@ -23,6 +23,7 @@ from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils.translation import ugettext as _
 from django.forms.forms import NON_FIELD_ERRORS
 from django.contrib.auth import authenticate
+from django.utils.text import capfirst
 
 from secure_js_login.utils import crypt
 from secure_js_login.models import UserProfile, CNONCE_CACHE
@@ -37,28 +38,49 @@ class WrongUserError(ObjectDoesNotExist):
 
 
 class UsernameForm(forms.Form):
-    username = forms.CharField(
-        min_length=1,
-        max_length=30, label=_('Username'),
-        help_text=_('Required. 30 characters or fewer. Alphanumeric characters only (letters, digits and underscores).')
-    )
+    """
+    similar to django.contrib.auth.forms.AuthenticationForm
+    """
+    username = forms.CharField(min_length=1, max_length=254)
 
-    error_messages = AuthenticationForm.error_messages
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, request=None, *args, **kwargs):
+        """
+        'request' parameter like auth.forms.AuthenticationForm
+        """
+        self.request = request
         self.user = None
         self.user_profile = None
+
         super(UsernameForm, self).__init__(*args, **kwargs)
 
+        # Set the label for the "username" field.
+        UserModel = get_user_model()
+        self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        if self.fields['username'].label is None:
+            self.fields['username'].label = capfirst(self.username_field.verbose_name)
+
     def _raise_validate_error(self, msg):
-        # log.debug(msg)
+        log.debug("%s error: %s", self.__class__.__name__, msg)
         if not settings.DEBUG:
-            msg = self.error_messages['invalid_login']
-        raise forms.ValidationError(msg)
+            # Use the same error message from auth.forms.AuthenticationForm
+            msg = _(
+                "Please enter a correct %(username)s and password. "
+                "Note that both fields may be case-sensitive."
+            ) % {'username': self.username_field.verbose_name}
+
+        raise forms.ValidationError(
+            msg,
+            code='invalid_login',
+            params={'username': self.username_field.verbose_name},
+        )
+
+    def clean(self):
+        log.debug("%s.clean()", self.__class__.__name__)
+        username = self.cleaned_data.get('username')
 
     def clean_username(self):
+        log.debug("%s.clean_username()", self.__class__.__name__)
         username = self.cleaned_data['username']
-
         try:
             user = get_user_model().objects.get(username=username)
         except ObjectDoesNotExist as err:
@@ -102,7 +124,7 @@ SECOND_PBKDF2_PART_Validator = HashValidator(name="second_pbkdf2_part", length=c
 CLIENT_NONCE_HEX_Validator = HashValidator(name="cnonce", length=app_settings.CLIENT_NONCE_LENGTH)
 
 
-class SecureLoginForm(AuthenticationForm, UsernameForm):
+class SecureLoginForm(UsernameForm):
     """
     data from the client as password:
         send pbkdf2_hash1, second-pbkdf2-part and cnonce to the server
@@ -121,7 +143,9 @@ class SecureLoginForm(AuthenticationForm, UsernameForm):
             # log.debug("No 'username' - Form errors: %r", self.errors)
             return
 
+        # self.user set in UsernameForm.clean_username()
         assert isinstance(self.user, get_user_model())
+        assert self.user.is_active==True # is checked in UsernameForm.clean_username()
 
         try:
             pbkdf2_hash, second_pbkdf2_part, cnonce = self.cleaned_data['password']
@@ -169,7 +193,6 @@ class SecureLoginForm(AuthenticationForm, UsernameForm):
         if not user:
             self._raise_validate_error("crypt.check_secure_js_login failed!")
 
-        self.confirm_login_allowed(user)
         return user
 
     def clean_password(self):
@@ -191,8 +214,9 @@ class SecureLoginForm(AuthenticationForm, UsernameForm):
         return (pbkdf2_hash, second_pbkdf2_part, cnonce)
 
     def get_user(self):
-        # for django.auth.views.login
+        # API for auth.views.login()
         return self.user
+
 
 # class JSPasswordChangeForm(Sha1BaseForm):
 #     """

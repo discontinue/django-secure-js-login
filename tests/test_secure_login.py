@@ -93,8 +93,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
             }
         )
         # debug_response(response)
-        # XXX: Why here: %(username)s ?!?
-        self.assertContains(response, "Please enter a correct %(username)s and password.")
+        self.assertContains(response, "Please enter a correct username and password.")
 
     def test_login(self):
         secure_password = self._get_secure_password(self.SUPER_USER_NAME, self.SUPER_USER_PASS)

@@ -91,12 +91,12 @@ def get_salt(request):
     try:
         username = request.POST["username"]
     except KeyError:
-        log.error("No 'username' in POST data?!?")
+        # log.error("No 'username' in POST data?!?")
         return HttpResponseBadRequest()
 
     send_pseudo_salt=True
 
-    form = UsernameForm(request.POST)
+    form = UsernameForm(data=request.POST)
     if form.is_valid():
         send_pseudo_salt=False
 
@@ -109,12 +109,14 @@ def get_salt(request):
         if len(init_pbkdf2_salt)!=app_settings.PBKDF2_SALT_LENGTH:
             # log.error("Salt for user %r has wrong length: %r" % (request.POST["username"], init_pbkdf2_salt))
             send_pseudo_salt=True
+    # else:
+    #     log.error("Salt Form is not valid: %r", form.errors)
 
     if send_pseudo_salt:
         # log.debug("\nUse pseudo salt!!!")
         init_pbkdf2_salt = crypt.get_pseudo_salt(app_settings.PBKDF2_SALT_LENGTH, username)
 
-    log.debug("\nsend init_pbkdf2_salt %r to client.", init_pbkdf2_salt)
+    # log.debug("\nsend init_pbkdf2_salt %r to client.", init_pbkdf2_salt)
     return HttpResponse(init_pbkdf2_salt, content_type="text/plain")
 
 
@@ -136,6 +138,8 @@ def display_login_info(sender, user, request, **kwargs):
 user_logged_in.connect(display_login_info)
 
 
+# @log_view
+@csrf_protect
 def secure_js_login(request):
     """
     FIXME:
