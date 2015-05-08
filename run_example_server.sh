@@ -27,7 +27,7 @@ while true
 do
 (
     set -x
-    ./manage.py ${CMD} ${IP}:8000
+    ./manage.py ${CMD} ${IP}:8000 --insecure
     sleep 2
 )
 done
