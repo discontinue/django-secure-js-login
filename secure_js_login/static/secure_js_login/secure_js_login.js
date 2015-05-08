@@ -37,12 +37,9 @@ try {
 function replace_complete_page(html) {
     // replace the complete page
     if (html.indexOf("</body>") == -1) {
-        document.open("text/plain");
-    } else {
-        document.open("text/html");
+        html = "<pre>\n"+html+"\n</pre>";
     }
-    document.write(html);
-    document.close();
+    $("body").replaceWith(html);
 }
 
 function ajax_error_handler(XMLHttpRequest, textStatus, errorThrown) {

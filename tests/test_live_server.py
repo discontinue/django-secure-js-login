@@ -16,8 +16,10 @@ import unittest
 
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
 import sys
+from selenium.webdriver.common.alert import Alert
 
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
+from django.utils import six
 
 try:
     import selenium
@@ -36,13 +38,19 @@ from tests.test_utils.test_cases import SecureLoginBaseTestCase
 
 
 class SeleniumVerboseAssert(object):
-    def _verbose_assertion_error(self, page_source, err):
+    def _verbose_assertion_error(self, err):
         print("\n", flush=True, file=sys.stderr)
         print("*" * 79, file=sys.stderr)
         traceback.print_exc()
         print(" -" * 40, file=sys.stderr)
-        page_source = "\n".join([line for line in page_source.splitlines() if line.rstrip()])
-        print(page_source, file=sys.stderr)
+        try:
+            page_source = self.driver.page_source
+        except Exception as e:
+            print("Can't get 'driver.page_source': %s" % e)
+        else:
+            page_source = "\n".join([line for line in page_source.splitlines() if line.rstrip()])
+            print(page_source, file=sys.stderr)
+
         print("*" * 79, file=sys.stderr)
         print("\n", flush=True, file=sys.stderr)
         raise
@@ -50,28 +58,30 @@ class SeleniumVerboseAssert(object):
     def assertNoJavaScriptAltert(self):
         alert = expected_conditions.alert_is_present()(self.driver)
         if alert != False:
+            alert_text = alert.text
+            alert.accept() # Confirm a alert dialog, otherwise access to driver.page_source will failed!
             try:
-                raise self.failureException("Alert is preset: %s" % alert.text)
+                raise self.failureException("Alert is preset: %s" % alert_text)
             except AssertionError as err:
-                self._verbose_assertion_error(self.driver.page_source, err)
+                self._verbose_assertion_error(err)
 
     def assertEqualTitle(self, should):
         try:
             self.assertEqual(self.driver.title, should)
         except AssertionError as err:
-            self._verbose_assertion_error(self.driver.page_source, err)
+            self._verbose_assertion_error(err)
 
     def assertInPageSource(self, member):
         try:
             self.assertIn(member, self.driver.page_source)
         except AssertionError as err:
-            self._verbose_assertion_error(self.driver.page_source, err)
+            self._verbose_assertion_error(err)
 
     def assertNotInPageSource(self, member):
         try:
             self.assertNotIn(member, self.driver.page_source)
         except AssertionError as err:
-            self._verbose_assertion_error(self.driver.page_source, err)
+            self._verbose_assertion_error(err)
 
 
 @unittest.skipUnless(selenium_import_error is None, selenium_import_error)

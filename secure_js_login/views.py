@@ -10,9 +10,12 @@
 """
 
 from __future__ import unicode_literals
+import functools
 
 import logging
 import pprint
+import traceback
+import sys
 
 from django.conf import settings
 from django.contrib import auth, messages
@@ -58,7 +61,27 @@ def _wrong_login(request, user=None):
     return HttpResponse(response, content_type="text/plain")
 
 
+def log_view(func):
+    """
+    Helpful while debugging Selenium unittests.
+    e.g.: server response an error in AJAX requests
+    """
+    @functools.wraps(func)
+    def view_logger(*args, **kwargs):
+        log.debug("call view %r", func.__name__)
+        try:
+            response = func(*args, **kwargs)
+        except Exception as err:
+            log.error("view exception: %s", err)
+            traceback.print_exc(file=sys.stderr)
+            raise
 
+        log.debug("Response: %s", response)
+        return response
+    return view_logger
+
+
+# @log_view
 @csrf_protect
 def get_salt(request):
     """
@@ -68,7 +91,7 @@ def get_salt(request):
     try:
         username = request.POST["username"]
     except KeyError:
-        # log.error("No 'username' in POST data?!?")
+        log.error("No 'username' in POST data?!?")
         return HttpResponseBadRequest()
 
     send_pseudo_salt=True
@@ -91,7 +114,7 @@ def get_salt(request):
         # log.debug("\nUse pseudo salt!!!")
         init_pbkdf2_salt = crypt.get_pseudo_salt(app_settings.PBKDF2_SALT_LENGTH, username)
 
-    # log.debug("\nsend init_pbkdf2_salt %r to client.", init_pbkdf2_salt)
+    log.debug("\nsend init_pbkdf2_salt %r to client.", init_pbkdf2_salt)
     return HttpResponse(init_pbkdf2_salt, content_type="text/plain")
 
 
