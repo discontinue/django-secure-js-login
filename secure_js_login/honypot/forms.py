@@ -30,8 +30,8 @@ class HoneypotForm(forms.Form):
                                widget=forms.PasswordInput
                                )
 
-    def __init__(self, *args, raise_error=False, **kwargs):
-        self.raise_error = raise_error
+    def __init__(self, *args, **kwargs):
+        self.raise_error = kwargs.pop("raise_error", False)
         super(HoneypotForm, self).__init__(*args, **kwargs)
 
     def clean(self):
