@@ -13,6 +13,7 @@ from __future__ import unicode_literals
 
 import logging
 import re
+from django.contrib.auth.forms import AuthenticationForm
 
 from django import forms
 from django.conf import settings
@@ -32,6 +33,10 @@ log = logging.getLogger("secure_js_login")
 
 class WrongUserError(ObjectDoesNotExist):
     pass
+
+
+# Use the same error message from auth.forms.AuthenticationForm
+ERROR_MESSAGE = AuthenticationForm.error_messages["invalid_login"]
 
 
 class UsernameForm(forms.Form):
@@ -59,11 +64,7 @@ class UsernameForm(forms.Form):
     def _raise_validate_error(self, msg):
         # log.debug("%s error: %s", self.__class__.__name__, msg)
         if not settings.DEBUG:
-            # Use the same error message from auth.forms.AuthenticationForm
-            msg = _(
-                "Please enter a correct %(username)s and password. "
-                "Note that both fields may be case-sensitive."
-            ) % {'username': self.username_field.verbose_name}
+            msg = ERROR_MESSAGE % {'username': self.username_field.verbose_name}
 
         raise forms.ValidationError(
             msg,

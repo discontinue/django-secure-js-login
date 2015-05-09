@@ -16,10 +16,11 @@ from django.template import RequestContext
 from django.utils.translation import ugettext as _
 from django.shortcuts import render_to_response
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import get_user_model
 
 from secure_js_login.honypot.forms import HoneypotForm
 from secure_js_login.honypot.models import HonypotAuth
+
 
 
 @csrf_exempt
@@ -27,7 +28,7 @@ def login_honeypot(request):
     """
     A login honypot.
     """
-    faked_login_error = False
+    status_code = None
     if request.method == 'POST':
         form = HoneypotForm(request.POST)
         if form.is_valid():
@@ -44,9 +45,10 @@ def login_honeypot(request):
                     password="***"
 
             HonypotAuth.objects.add(request, username, password)
-            messages.error(request, _("username/password wrong."))
-            form = HoneypotForm(initial={"username": username})
-            faked_login_error = True
+
+            # Send a "errored" form back, that looks like the normal form
+            form = HoneypotForm(request.POST, raise_error=True)
+            status_code = 401 # Unauthorized
     else:
         form = HoneypotForm()
     context = {
@@ -56,9 +58,8 @@ def login_honeypot(request):
 
     response = render_to_response(
         "admin/login.html",
-        context,
-        context_instance=RequestContext(request)
+        context, context_instance=RequestContext(request)
     )
-    if faked_login_error:
-        response.status_code = 401
+    if status_code is not None:
+        response.status_code = status_code
     return response

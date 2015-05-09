@@ -86,7 +86,7 @@ class AdditionalAssertmentsMixin(object):
             self.assertIn("Last login was:", page_source)
             self.assertIn(self.SUPER_USER_NAME, page_source)
             self.assertIn("Log out", page_source)
-            self.assertNotIn("Error", page_source)
+            self.assertNotIn("error", page_source)
         except AssertionError as err:
             self._verbose_assertion_error(page_source)
 
@@ -102,7 +102,7 @@ class AdditionalAssertmentsMixin(object):
             self.assertNotIn("You are logged in.", page_source)
             self.assertNotIn("Last login was:", page_source)
             self.assertNotIn("Log out", page_source)
-            self.assertIn("Error", page_source)
+            self.assertIn("error", page_source)
         except AssertionError as err:
             self._verbose_assertion_error(page_source)
 
@@ -116,6 +116,7 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
         super(SecureLoginBaseTestCase, cls).setUpClass()
         cls.secure_login_url = reverse("secure-js-login:login")
         cls.get_salt_url = reverse("secure-js-login:get_salt")
+        cls.honypot_url = reverse("honypot-login:login")
 
     def setUp(self):
         super(SecureLoginBaseTestCase, self).setUp()

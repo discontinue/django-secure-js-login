@@ -14,14 +14,26 @@ from __future__ import unicode_literals
 from django import forms
 from django.utils.translation import ugettext as _
 
+from secure_js_login.forms import ERROR_MESSAGE
 
-class WrongUserError(Exception):
-    pass
+ERROR_MESSAGE = ERROR_MESSAGE % {"username": "username"}  # replace string formatting part
 
 
 class HoneypotForm(forms.Form):
+    """
+    Special form:
+     * We can validate max_length
+     * We can raise a form error by view ;)
+    """
     username = forms.CharField(max_length=30, label=_('username'))
     password = forms.CharField(max_length=128, label=_('password'),
-        widget=forms.PasswordInput
-    )
+                               widget=forms.PasswordInput
+                               )
 
+    def __init__(self, *args, raise_error=False, **kwargs):
+        self.raise_error = raise_error
+        super(HoneypotForm, self).__init__(*args, **kwargs)
+
+    def clean(self):
+        if self.raise_error:
+            raise forms.ValidationError(ERROR_MESSAGE)
