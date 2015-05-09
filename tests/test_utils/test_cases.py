@@ -21,10 +21,8 @@ import pprint
 import sys
 import traceback
 
-from django.contrib.auth import get_user_model, authenticate
+from django.contrib.auth import get_user_model, authenticate, SESSION_KEY
 from django.core.urlresolvers import reverse
-from django.db import IntegrityError
-from django.db.models.loading import get_models, get_app
 from django.http import HttpResponse
 from django.test import SimpleTestCase
 
@@ -77,6 +75,12 @@ class AdditionalAssertmentsMixin(object):
                 raise
 
     def assertSecureLoginSuccess(self, page_source):
+        if isinstance(page_source, HttpResponse):
+            page_source = page_source.content.decode("utf-8")
+            try:
+                self.assertIn(SESSION_KEY, self.client.session)
+            except AssertionError as err:
+                self._verbose_assertion_error(page_source)
         try:
             self.assertIn("You are logged in.", page_source)
             self.assertIn("Last login was:", page_source)
@@ -85,9 +89,15 @@ class AdditionalAssertmentsMixin(object):
             self.assertNotIn("Error", page_source)
         except AssertionError as err:
             self._verbose_assertion_error(page_source)
-            raise
 
     def assertSecureLoginFailed(self, page_source):
+        if isinstance(page_source, HttpResponse):
+            page_source = page_source.content.decode("utf-8")
+            try:
+                self.assertNotIn(SESSION_KEY, self.client.session)
+            except AssertionError as err:
+                self._verbose_assertion_error(page_source)
+
         try:
             self.assertNotIn("You are logged in.", page_source)
             self.assertNotIn("Last login was:", page_source)
@@ -95,7 +105,6 @@ class AdditionalAssertmentsMixin(object):
             self.assertIn("Error", page_source)
         except AssertionError as err:
             self._verbose_assertion_error(page_source)
-            raise
 
 
 class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):

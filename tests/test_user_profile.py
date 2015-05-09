@@ -15,11 +15,13 @@ from __future__ import unicode_literals
 
 from secure_js_login.models import UserProfile
 from tests.test_utils.test_cases import SecureLoginBaseTestCase
-from secure_js_login import settings as app_settings
 from secure_js_login.utils import crypt
 
 
 class TestUserProfile(SecureLoginBaseTestCase):
+    """
+    TODO: Test User.set_unusable_password()
+    """
     def test_set_password(self):
         old_init_pbkdf2_salt = self.superuser_profile.init_pbkdf2_salt
         old_encrypted_part = self.superuser_profile.encrypted_part

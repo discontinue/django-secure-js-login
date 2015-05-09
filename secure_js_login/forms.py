@@ -16,12 +16,9 @@ import re
 
 from django import forms
 from django.conf import settings
-from django.contrib import auth
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils.translation import ugettext as _
-from django.forms.forms import NON_FIELD_ERRORS
 from django.contrib.auth import authenticate
 from django.utils.text import capfirst
 
@@ -60,7 +57,7 @@ class UsernameForm(forms.Form):
             self.fields['username'].label = capfirst(self.username_field.verbose_name)
 
     def _raise_validate_error(self, msg):
-        log.debug("%s error: %s", self.__class__.__name__, msg)
+        # log.debug("%s error: %s", self.__class__.__name__, msg)
         if not settings.DEBUG:
             # Use the same error message from auth.forms.AuthenticationForm
             msg = _(
@@ -75,11 +72,11 @@ class UsernameForm(forms.Form):
         )
 
     def clean(self):
-        log.debug("%s.clean()", self.__class__.__name__)
+        # log.debug("%s.clean()", self.__class__.__name__)
         username = self.cleaned_data.get('username')
 
     def clean_username(self):
-        log.debug("%s.clean_username()", self.__class__.__name__)
+        # log.debug("%s.clean_username()", self.__class__.__name__)
         username = self.cleaned_data['username']
         try:
             user = get_user_model().objects.get(username=username)
