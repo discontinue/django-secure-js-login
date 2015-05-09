@@ -48,19 +48,6 @@ def _get_server_challenge(request):
     return server_challenge
 
 
-
-def _wrong_login(request, user=None):
-    """ username or password is wrong. """
-    # log.error("Login error, username: %r", user.username)
-
-    # create a new challenge and add it to session
-    challenge = _get_server_challenge(request)
-
-    error_msg = _("Wrong username/password.")
-    response = "%s;%s" % (challenge, error_msg)
-    return HttpResponse(response, content_type="text/plain")
-
-
 def log_view(func):
     """
     Helpful while debugging Selenium unittests.
@@ -173,13 +160,6 @@ def secure_js_login(request):
         }
     )
 
-
-def _logout_view(request):
-    """ Logout the current user. """
-    auth.logout(request)
-    messages.success(request, _("You are logged out!"))
-    next_url = request.path
-    return HttpResponseRedirect(next_url)
 
 
 
