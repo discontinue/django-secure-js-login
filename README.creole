@@ -121,7 +121,7 @@ to run the Live-Server-Tests, install [[https://pypi.python.org/pypi/selenium|se
 
 == changelog
 
-* v0.2.0 - dev:
+* v0.2.0 - 10.05.2015:
 ** increase default PBKDF2 iteration after test on a Raspberry Pi 1
 ** more unitests
 ** Honypot login raise "normal" form errors
