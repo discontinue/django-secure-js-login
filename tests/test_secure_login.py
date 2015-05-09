@@ -16,6 +16,7 @@ from __future__ import unicode_literals
 from django.conf import settings
 from django.utils import six
 from django.utils.crypto import get_random_string
+from secure_js_login.forms import HashValidator
 from secure_js_login.utils import crypt
 
 
@@ -175,3 +176,23 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         response = self._secure_login(secure_password=old_secure_password)
         # debug_response(response)
         self.assertSecureLoginFailed(response)
+
+    def test_request_salt_without_username(self):
+        response = self.client.post(
+            self.get_salt_url,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 400) # BadRequest
+
+
+    def test_no_init_pbkdf2_salt_exists(self):
+        self.superuser_profile.init_pbkdf2_salt = ""
+        self.superuser_profile.save()
+        pseudo_salt = self._request_init_pbkdf2_salt(username=self.SUPER_USER_NAME)
+
+        v = HashValidator(name="pseudo_salt", length=app_settings.PBKDF2_SALT_LENGTH)
+        v.validate(pseudo_salt)
+
+        # Check if we get the same pseudo_salt, again:
+        pseudo_salt2 = self._request_init_pbkdf2_salt(username=self.SUPER_USER_NAME)
+        self.assertEqual(pseudo_salt, pseudo_salt2)
