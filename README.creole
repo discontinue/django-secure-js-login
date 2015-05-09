@@ -3,6 +3,10 @@
 JavaScript Challenge-handshake authentication django app.
 
 | {{https://travis-ci.org/jedie/django-secure-js-login.svg|Build Status on travis-ci.org}} | [[https://travis-ci.org/jedie/django-secure-js-login/|travis-ci.org/jedie/django-secure-js-login]] |
+| {{https://coveralls.io/repos/jedie/django-secure-js-login/badge.svg|Coverage Status on coveralls.io}} | [[https://coveralls.io/r/jedie/django-secure-js-login|coveralls.io/r/jedie/django-secure-js-login]] |
+
+
+
 
 First:
 The Secure-JS-Login is not a simple //"send username + PBKDF2-SHA(password)"//
