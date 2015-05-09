@@ -13,11 +13,7 @@ The Secure-JS-Login is not a simple //"send username + PBKDF2-SHA(password)"//
 It is more a [[http://en.wikipedia.org/wiki/Challenge-handshake_authentication_protocol|Challenge-handshake authentication protocol]]!
 
 TODO:
-* code cleanup
-* cleanup templates
 * fix "next_url" and all links in example project
-* add unittests for using old challange value again
-* add unittests for using old cnonce value again
 
 == The procedure:
 
@@ -126,9 +122,11 @@ to run the Live-Server-Tests, install [[https://pypi.python.org/pypi/selenium|se
 == changelog
 
 * v0.2.0 - dev:
+** increase default PBKDF2 iteration after test on a Raspberry Pi 1
+** more unitests
+** Honypot login raise "normal" form errors
 ** code cleanup
 ** Docu update
-** increase default PBKDF2 iteration after test on a Raspberry Pi 1
 * v0.1.0 - 06.05.2015:
 ** initial release as reuseable app
 ** Use PBKDF2

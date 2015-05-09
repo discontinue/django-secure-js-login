@@ -16,11 +16,12 @@ from __future__ import unicode_literals
 from django.conf import settings
 from django.utils import six
 from django.utils.crypto import get_random_string
-from secure_js_login.forms import HashValidator
+from secure_js_login.forms import HashValidator, CLIENT_DATA_LEN
 from secure_js_login.utils import crypt
 
 
 from secure_js_login import settings as app_settings
+from tests.test_utils.manipulators import secure_pass_manipulator
 from tests.test_utils.test_cases import SecureLoginBaseTestCase, debug_response
 
 
@@ -28,71 +29,79 @@ class TestSecureLogin(SecureLoginBaseTestCase):
     """
     Tests with django test client
     """
+    def _reset_secure_data(self):
+        self.username = None
+        self.plaintext_password = None
+        self.server_challenge = None
+        self.init_pbkdf2_salt = None
+        self.cnonce = None
+        self.secure_password = None
+
+    def setUp(self):
+        super(TestSecureLogin, self).setUp()
+        self._reset_secure_data()
+
     def _request_server_challenge(self):
         response = self.client.get(self.secure_login_url)
         csrf_cookie = response.cookies[settings.CSRF_COOKIE_NAME]
         # debug_response(response)
-        server_challenge = response.context["challenge"]
-        self.assertContains(response, 'challenge="%s";' % server_challenge)
-        return server_challenge
+        self.server_challenge = response.context["challenge"]
+        self.assertContains(response, 'challenge="%s";' % self.server_challenge)
+        return self.server_challenge
 
-    def _request_init_pbkdf2_salt(self, username):
+    def _request_init_pbkdf2_salt(self):
+        if self.username is None:
+            self.username = self.SUPER_USER_NAME
+
         response = self.client.post(
             self.get_salt_url,
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
             # HTTP_X_CSRFTOKEN=csrf_token,
-            data={"username": username}
+            data={"username": self.username}
         )
-        init_pbkdf2_salt = six.text_type(response.content, "ascii")
-        return init_pbkdf2_salt
+        self.init_pbkdf2_salt = six.text_type(response.content, "ascii")
+        return self.init_pbkdf2_salt
 
     def _get_cnonce(self):
-        return get_random_string(
+        self.cnonce = get_random_string(
             length=app_settings.CLIENT_NONCE_LENGTH,
             allowed_chars="1234567890abcdef" # cnonce must a "valid" hex value
         )
+        return self.cnonce
 
-    def _calc_secure_password(self, server_challenge, cnonce, init_pbkdf2_salt, plaintext_password):
-        pbkdf2_hash, second_pbkdf2_part = crypt._simulate_client(
-            plaintext_password=plaintext_password,
-            init_pbkdf2_salt=init_pbkdf2_salt,
-            cnonce=cnonce,
-            server_challenge=server_challenge
+    def _calc_secure_password(self):
+        if self.plaintext_password is None:
+            self.plaintext_password = self.SUPER_USER_PASS
+
+        if self.server_challenge is None:
+            self._request_server_challenge()
+
+        if self.init_pbkdf2_salt is None:
+            self._request_init_pbkdf2_salt()
+
+        if self.cnonce is None:
+            self._get_cnonce()
+
+        self.pbkdf2_hash, self.second_pbkdf2_part = crypt._simulate_client(
+            plaintext_password=self.plaintext_password,
+            init_pbkdf2_salt=self.init_pbkdf2_salt,
+            cnonce=self.cnonce,
+            server_challenge=self.server_challenge
         )
-        return "$".join([pbkdf2_hash, second_pbkdf2_part, cnonce])
+        self.secure_password = "$".join([self.pbkdf2_hash, self.second_pbkdf2_part, self.cnonce])
+        return self.secure_password
 
-    def _secure_login(self,
-                      secure_password = None,
-                      username=None, plaintext_password=None,
-                      server_challenge=None, init_pbkdf2_salt=None, cnonce=None):
-        if username is None:
-            username = self.SUPER_USER_NAME
-
-        if secure_password is None:
-            if plaintext_password is None:
-                plaintext_password = self.SUPER_USER_PASS
-            if server_challenge is None:
-                server_challenge = self._request_server_challenge()
-            if init_pbkdf2_salt is None:
-                init_pbkdf2_salt = self._request_init_pbkdf2_salt(username)
-            if cnonce is None:
-                cnonce = self._get_cnonce()
-
-            secure_password = self._calc_secure_password(
-                server_challenge, cnonce, init_pbkdf2_salt, plaintext_password
-            )
+    def _secure_login(self):
+        if self.secure_password is None:
+            self._calc_secure_password()
 
         response = self.client.post(self.secure_login_url,
             follow=True, # Redirect after successfully login
             data = {
-                'username': username,
-                "password": secure_password,
+                'username': self.username,
+                "password": self.secure_password,
             }
         )
-        response._unittest_cnonce = cnonce
-        response._unittest_salt = init_pbkdf2_salt
-        response._unittest_challenge = server_challenge
-        response._unittest_secure_password = secure_password
         return response
 
     def test_login_page(self):
@@ -117,35 +126,31 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         Request with a wrong username
         use a valid secure-pass, so that the password validation will not raised an error.
         """
-        response = self._secure_login(username="doesnt_exist")
+        self.username="doesnt_exist"
+        response = self._secure_login()
         # debug_response(response)
-        self.assertContains(response, "Please enter a correct username and password.")
+        self.assertSecureLoginFailed(response)
 
     def test_not_active_user(self):
         self.superuser.is_active = False
         self.superuser.save()
 
         response = self._secure_login()
-        self.assertContains(response, "Please enter a correct username and password.")
+        self.assertSecureLoginFailed(response)
 
-        # We should get a "pseudo" salt value
-        self.assertNotEqual(response._unittest_salt, self.superuser_profile.init_pbkdf2_salt)
-
-        # however: try to login a inactive user with the right salt
-        response = self._secure_login(init_pbkdf2_salt=self.superuser_profile.init_pbkdf2_salt)
-        # debug_response(response)
-        self.assertContains(response, "Please enter a correct username and password.")
+        # We should get the "right" salt value
+        self.assertEqual(self.init_pbkdf2_salt, self.superuser_profile.init_pbkdf2_salt)
 
     def test_use_same_cnonce(self):
-        cnonce = self._get_cnonce()
-        response = self._secure_login(cnonce=cnonce)
+        response = self._secure_login()
         # debug_response(response)
         self.assertSecureLoginSuccess(response)
 
         self.client.logout()
+        self.server_challenge = None # Request challenge again
 
         # Try to login with the same cnonce again:
-        response = self._secure_login(cnonce=cnonce)
+        response = self._secure_login()
         # debug_response(response)
         self.assertSecureLoginFailed(response)
 
@@ -154,26 +159,29 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         # debug_response(response)
         self.assertSecureLoginSuccess(response)
 
-        old_challenge = response._unittest_challenge
+        old_challenge = self.server_challenge
 
         self.client.logout()
+        self.init_pbkdf2_salt = None # Request salt again
 
-        # Try to login with the same cnonce again:
-        response = self._secure_login(server_challenge=old_challenge)
+        # Try to login with the same challenge again:
+        response = self._secure_login()
         # debug_response(response)
         self.assertSecureLoginFailed(response)
+
+        self.assertEqual(old_challenge, self.server_challenge)
 
     def test_use_same_secure_password(self):
         response = self._secure_login()
         # debug_response(response)
         self.assertSecureLoginSuccess(response)
 
-        old_secure_password = response._unittest_secure_password
+        old_secure_password = self.secure_password
 
         self.client.logout()
 
-        # Try to login with the same cnonce again:
-        response = self._secure_login(secure_password=old_secure_password)
+        # Try to login with the same secure_password again:
+        response = self._secure_login()
         # debug_response(response)
         self.assertSecureLoginFailed(response)
 
@@ -188,11 +196,40 @@ class TestSecureLogin(SecureLoginBaseTestCase):
     def test_no_init_pbkdf2_salt_exists(self):
         self.superuser_profile.init_pbkdf2_salt = ""
         self.superuser_profile.save()
-        pseudo_salt = self._request_init_pbkdf2_salt(username=self.SUPER_USER_NAME)
+        pseudo_salt = self._request_init_pbkdf2_salt()
 
         v = HashValidator(name="pseudo_salt", length=app_settings.PBKDF2_SALT_LENGTH)
         v.validate(pseudo_salt)
 
         # Check if we get the same pseudo_salt, again:
-        pseudo_salt2 = self._request_init_pbkdf2_salt(username=self.SUPER_USER_NAME)
+        pseudo_salt2 = self._request_init_pbkdf2_salt()
         self.assertEqual(pseudo_salt, pseudo_salt2)
+
+    def test_wrong_password_length(self):
+        self._calc_secure_password()
+        self.secure_password = secure_pass_manipulator(self.secure_password, pbkdf2_hash_mid="")
+
+        response = self._secure_login()
+        # debug_response(response)
+        self.assertSecureLoginFailed(response)
+        self.assertFormError(response, "form", field="password",
+            errors="Ensure this value has at least %i characters (it has %i)." % (
+                CLIENT_DATA_LEN, CLIENT_DATA_LEN-1
+            )
+        )
+
+    def test_pbkdf2_hash_no_hex(self):
+        self._calc_secure_password()
+        self.secure_password = secure_pass_manipulator(self.secure_password, pbkdf2_hash_mid="X")
+
+        response = self._secure_login()
+        # debug_response(response)
+        self.assertSecureLoginFailed(response)
+
+    def test_wrong_secure_password(self):
+        self._calc_secure_password()
+        self.secure_password = self.secure_password.replace("$", "0", 1)
+
+        response = self._secure_login()
+        # debug_response(response)
+        self.assertSecureLoginFailed(response)

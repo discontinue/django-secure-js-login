@@ -80,14 +80,9 @@ class UsernameForm(forms.Form):
         # log.debug("%s.clean_username()", self.__class__.__name__)
         username = self.cleaned_data['username']
         try:
-            user = get_user_model().objects.get(username=username)
+            self.user = get_user_model().objects.get(username=username)
         except ObjectDoesNotExist as err:
             raise self._raise_validate_error("User %r doesn't exists!" % username)
-
-        if not user.is_active:
-            raise self._raise_validate_error("User %r is not active!" % user)
-        else:
-            self.user = user
 
         try:
             self.user_profile = UserProfile.objects.get_user_profile(self.user)
@@ -143,7 +138,9 @@ class SecureLoginForm(UsernameForm):
 
         # self.user set in UsernameForm.clean_username()
         assert isinstance(self.user, get_user_model())
-        assert self.user.is_active==True # is checked in UsernameForm.clean_username()
+
+        if not self.user.is_active==True:
+            raise self._raise_validate_error("User %r is not active!" % self.user)
 
         try:
             pbkdf2_hash, second_pbkdf2_part, cnonce = self.cleaned_data['password']
@@ -196,17 +193,22 @@ class SecureLoginForm(UsernameForm):
     def clean_password(self):
         password = self.cleaned_data["password"]
         if password.count("$") != 2:
-            self._raise_validate_error(
+            log.error(
                 "No two $ (found: %i) in password found in: %r" % (
                     password.count("$"),password
                 )
             )
+            return
 
         pbkdf2_hash, second_pbkdf2_part, cnonce = password.split("$")
 
-        PBKDF2_HASH_Validator.validate(pbkdf2_hash)
-        SECOND_PBKDF2_PART_Validator.validate(second_pbkdf2_part)
-        CLIENT_NONCE_HEX_Validator.validate(cnonce)
+        try:
+            PBKDF2_HASH_Validator.validate(pbkdf2_hash)
+            SECOND_PBKDF2_PART_Validator.validate(second_pbkdf2_part)
+            CLIENT_NONCE_HEX_Validator.validate(cnonce)
+        except ValidationError as err:
+            log.error("password value error: %s" % err)
+            return
 
         # log.debug("Password data is valid.")
         return (pbkdf2_hash, second_pbkdf2_part, cnonce)

@@ -15,41 +15,19 @@ import unittest
 
 from secure_js_login.utils import crypt
 from secure_js_login.utils.crypt import CryptError
-
-
-class CryptManipulator(object):
-    def __init__(self, encrypted_text):
-        self.algorithm, self.iterations, self.salt, self.hash, self.data = encrypted_text.split("$")
-
-    def manipulate(self, **kwargs):
-        for info, new_value in kwargs.items():
-            kind, position = info.split("_")
-            data = getattr(self, kind)
-            if position=="start":
-                data = new_value + data[1:]
-            elif position=="mid":
-                mid=int(len(data)/2)
-                data = data[:mid] + new_value + data[mid+1:]
-            elif position=="end":
-                data = data[:-1] + new_value
-            else:
-                raise AssertionError
-            setattr(self, kind, data)
-
-        return "$".join([self.algorithm, self.iterations, self.salt, self.hash, self.data])
-
+from tests.test_utils.manipulators import xor_crypt_manipulator
 
 
 class TestCryptManipulator(unittest.TestCase):
     def test1(self):
         self.assertEqual(
-            CryptManipulator("12345$678$9012$345678$abcdef").manipulate(algorithm_mid="X"),
+            xor_crypt_manipulator("12345$678$9012$345678$abcdef", algorithm_mid="X"),
             "12X45$678$9012$345678$abcdef"
         )
 
     def test2(self):
         self.assertEqual(
-            CryptManipulator("12345$678$9012$345678$abcdef").manipulate(
+            xor_crypt_manipulator("12345$678$9012$345678$abcdef",
                 iterations_start="A", salt_end="B", hash_mid="C", data_start=""
             ),
             "12345$A78$901B$345C78$bcdef"
@@ -57,7 +35,7 @@ class TestCryptManipulator(unittest.TestCase):
 
     def test3(self):
         self.assertEqual(
-            CryptManipulator("12345$678$9012$345678$abcdef").manipulate(
+            xor_crypt_manipulator("12345$678$9012$345678$abcdef",
                 salt_start="", hash_end="", data_mid="123"
             ),
             "12345$678$012$34567$abc123ef"
@@ -122,7 +100,7 @@ class TestCrypt(unittest.TestCase):
 
     def test_wrong_algorithm(self):
         data = self.test_encrypted
-        data = CryptManipulator(data).manipulate(algorithm_start="X")
+        data = xor_crypt_manipulator(data, algorithm_start="X")
         with self.assertRaises(CryptError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
         self.assertEqual("wrong algorithm", err.exception.args[0])
@@ -130,7 +108,7 @@ class TestCrypt(unittest.TestCase):
     def test_wrong_salt(self):
         data = self.test_encrypted
         # print(data)
-        data = CryptManipulator(data).manipulate(salt_mid="X")
+        data = xor_crypt_manipulator(data, salt_mid="X")
         # print(data)
         with self.assertRaises(CryptError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
@@ -139,7 +117,7 @@ class TestCrypt(unittest.TestCase):
     def test_wrong_hash(self):
         data = self.test_encrypted
         # print(data)
-        data = CryptManipulator(data).manipulate(hash_mid="X")
+        data = xor_crypt_manipulator(data, hash_mid="X")
         # print(data)
         with self.assertRaises(CryptError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
@@ -148,7 +126,7 @@ class TestCrypt(unittest.TestCase):
     def test_wrong_data1(self):
         data = self.test_encrypted
         # print(data)
-        data = CryptManipulator(data).manipulate(data_mid="ff")
+        data = xor_crypt_manipulator(data, data_mid="ff")
         # print(data)
         with self.assertRaises(CryptError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
@@ -160,7 +138,7 @@ class TestCrypt(unittest.TestCase):
     def test_wrong_data2(self):
         data = self.test_encrypted
         # print(data)
-        data = CryptManipulator(data).manipulate(data_end="X")
+        data = xor_crypt_manipulator(data, data_end="X")
         # print(data)
         with self.assertRaises(CryptError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
@@ -173,7 +151,7 @@ class TestCrypt(unittest.TestCase):
         # data is a valid "hexlify" string, but the hash compare will failed
         data = self.test_encrypted
         # print(data)
-        data = CryptManipulator(data).manipulate(data_end="f")
+        data = xor_crypt_manipulator(data, data_end="f")
         # print(data)
         with self.assertRaises(CryptError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
