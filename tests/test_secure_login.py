@@ -91,6 +91,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         response._unittest_cnonce = cnonce
         response._unittest_salt = init_pbkdf2_salt
         response._unittest_challenge = server_challenge
+        response._unittest_secure_password = secure_password
         return response
 
     def test_login_page(self):
@@ -144,5 +145,33 @@ class TestSecureLogin(SecureLoginBaseTestCase):
 
         # Try to login with the same cnonce again:
         response = self._secure_login(cnonce=cnonce)
+        # debug_response(response)
+        self.assertSecureLoginFailed(response)
+
+    def test_use_same_challenge(self):
+        response = self._secure_login()
+        # debug_response(response)
+        self.assertSecureLoginSuccess(response)
+
+        old_challenge = response._unittest_challenge
+
+        self.client.logout()
+
+        # Try to login with the same cnonce again:
+        response = self._secure_login(server_challenge=old_challenge)
+        # debug_response(response)
+        self.assertSecureLoginFailed(response)
+
+    def test_use_same_secure_password(self):
+        response = self._secure_login()
+        # debug_response(response)
+        self.assertSecureLoginSuccess(response)
+
+        old_secure_password = response._unittest_secure_password
+
+        self.client.logout()
+
+        # Try to login with the same cnonce again:
+        response = self._secure_login(secure_password=old_secure_password)
         # debug_response(response)
         self.assertSecureLoginFailed(response)
