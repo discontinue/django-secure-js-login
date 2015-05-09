@@ -14,6 +14,7 @@ It is more a [[http://en.wikipedia.org/wiki/Challenge-handshake_authentication_p
 
 TODO:
 * fix "next_url" and all links in example project
+* common form error, but save the "login fail" reason internally for debugging and unittests
 
 == The procedure:
 
@@ -53,7 +54,7 @@ Server part:
 # compare **test_hash** with transmitted **pbkdf2_hash**
 
 
-== secure?
+=== secure?
 
 Secure-JS-Login is not really secure in comparison to https! e.g. the client can't validate if he really communicate with the server or with a [[https://en.wikipedia.org/wiki/Man-in-the-middle_attack|Man-in-the-middle attack]].
 
