@@ -199,12 +199,25 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         self.assertSecureLoginFailed(response)
 
     def test_request_salt_without_username(self):
+        self._request_server_challenge() # make a existing challenge
+
         response = self.client.post(
             self.get_salt_url,
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
         self.assertEqual(response.status_code, 400) # BadRequest
 
+    def test_request_salt_without_challenge(self):
+        """
+        The "get salt" view checks if the challenge exists.
+        The challenge was added to session data in the GET login form request
+        """
+        response = self.client.post(
+            self.get_salt_url,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            data={"username": self.SUPER_USER_NAME}
+        )
+        self.assertEqual(response.status_code, 400) # BadRequest
 
     def test_no_init_pbkdf2_salt_exists(self):
         self.superuser_profile.init_pbkdf2_salt = ""
