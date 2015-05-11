@@ -25,7 +25,7 @@ from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_protect, csrf_exempt, ensure_csrf_cookie
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth.views import login
-from django.contrib.auth.signals import user_logged_in
+from django.contrib.auth.signals import user_logged_in, user_login_failed
 
 # auth own stuff
 from secure_js_login.models import CNONCE_CACHE, UserProfile
@@ -36,17 +36,6 @@ from secure_js_login import settings as app_settings
 
 log = logging.getLogger("secure_js_login")
 
-def _get_server_challenge(request):
-    """ create a new server_challenge, add it to session and return it"""
-    # Create a new random salt value for the password server_challenge:
-    server_challenge = crypt.seed_generator(app_settings.RANDOM_CHALLENGE_LENGTH)
-
-    # For later comparing with form data
-    request.session["server_challenge"] = server_challenge
-    # log.debug("Save new server_challenge %r to session.", server_challenge)
-
-    return server_challenge
-
 
 def log_view(func):
     """
@@ -55,15 +44,15 @@ def log_view(func):
     """
     @functools.wraps(func)
     def view_logger(*args, **kwargs):
-        log.debug("call view %r", func.__name__)
+        # log.debug("call view %r", func.__name__)
         try:
             response = func(*args, **kwargs)
         except Exception as err:
-            log.error("view exception: %s", err)
+            # log.error("view exception: %s", err)
             traceback.print_exc(file=sys.stderr)
             raise
 
-        log.debug("Response: %s", response)
+        # log.debug("Response: %s", response)
         return response
     return view_logger
 
@@ -81,9 +70,16 @@ def get_salt(request):
         # log.error("No 'username' in POST data?!?")
         return HttpResponseBadRequest()
 
+    try:
+        request.old_server_challenge = request.session["old_server_challenge"]
+    except KeyError as err:
+        # log.error("Can't get challenge from session: %s", err)
+        return HttpResponseBadRequest()
+    # log.debug("old challenge: %r", request.old_server_challenge)
+
     send_pseudo_salt=True
 
-    form = UsernameForm(data=request.POST)
+    form = UsernameForm(request, data=request.POST)
     if form.is_valid():
         send_pseudo_salt=False
 
@@ -97,7 +93,7 @@ def get_salt(request):
             # log.error("Salt for user %r has wrong length: %r" % (request.POST["username"], init_pbkdf2_salt))
             send_pseudo_salt=True
     # else:
-    #     log.error("Salt Form is not valid: %r", form.errors)
+        # log.error("Salt Form is not valid: %r", form.errors)
 
     if send_pseudo_salt:
         # log.debug("\nUse pseudo salt!!!")
@@ -132,16 +128,23 @@ def secure_js_login(request):
     FIXME:
         * Don't send a inserted password back, if form is not valid
     """
-    try:
-        request.old_server_challenge = request.session["server_challenge"]
-        # log.debug("Use old server_challenge: %r", request.old_server_challenge)
-    except KeyError:
-        request.old_server_challenge = None
+    # Create a new random salt value for the password server_challenge:
+    new_server_challenge = crypt.seed_generator(app_settings.RANDOM_CHALLENGE_LENGTH)
 
-    # create a new challenge and add it to session
-    server_challenge = _get_server_challenge(request)
+    if request.method == "POST":
+        # POST -> Compare login data
+        try:
+            request.old_server_challenge = request.session.pop("old_server_challenge")
+        except KeyError as err:
+            # log.error("Can't get old callenge from session: %s", err)
+            return HttpResponseBadRequest()
+        # log.debug("old challenge: %r", request.old_server_challenge)
+    else:
+        # GET: request login form
+        request.session["old_server_challenge"] = new_server_challenge
+        # log.debug("Save challenge %r for next POST", new_server_challenge)
 
-    return login(request,
+    response = login(request,
         template_name="secure_js_login/secure_js_login.html",
         # redirect_field_name=REDIRECT_FIELD_NAME,
         authentication_form=SecureLoginForm,
@@ -149,7 +152,7 @@ def secure_js_login(request):
         extra_context={
             "title": "Secure-JS-Login",
             "DEBUG": "true" if settings.DEBUG else "false",
-            "challenge": server_challenge,
+            "challenge": new_server_challenge,
             "CHALLENGE_LENGTH": app_settings.RANDOM_CHALLENGE_LENGTH,
             "NONCE_LENGTH": app_settings.CLIENT_NONCE_LENGTH,
             "SALT_LENGTH": app_settings.PBKDF2_SALT_LENGTH,
@@ -159,6 +162,12 @@ def secure_js_login(request):
             "CSRF_COOKIE_NAME": settings.CSRF_COOKIE_NAME,
         }
     )
+
+    if request.method == "POST" and not request.user.is_authenticated():
+        # log.debug("Logged in failed: Save new challenge to session")
+        request.session["old_server_challenge"] = new_server_challenge
+
+    return response
 
 
 

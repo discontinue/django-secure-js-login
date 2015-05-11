@@ -34,6 +34,8 @@ except ImportError as err:
 else:
     selenium_import_error = None
 
+# selenium_import_error = "Deactivated!"
+
 from tests.test_utils.test_cases import SecureLoginBaseTestCase
 
 

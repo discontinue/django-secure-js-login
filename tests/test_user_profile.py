@@ -13,15 +13,19 @@ from __future__ import unicode_literals
 
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
 
+from django.utils.crypto import get_random_string
+
 from secure_js_login.models import UserProfile
 from tests.test_utils.test_cases import SecureLoginBaseTestCase
 from secure_js_login.utils import crypt
+from secure_js_login import settings as app_settings
 
 
 class TestUserProfile(SecureLoginBaseTestCase):
     """
     TODO: Test User.set_unusable_password()
     """
+
     def test_set_password(self):
         old_init_pbkdf2_salt = self.superuser_profile.init_pbkdf2_salt
         old_encrypted_part = self.superuser_profile.encrypted_part
@@ -33,8 +37,12 @@ class TestUserProfile(SecureLoginBaseTestCase):
         self.assertNotEqual(old_encrypted_part, fresh_user_profile.encrypted_part)
 
         # Check the created data:
-        cnonce="1"
-        server_challenge="2"
+        cnonce = cnonce = get_random_string(
+            length=app_settings.CLIENT_NONCE_LENGTH,
+            allowed_chars="1234567890abcdef" # cnonce must a "valid" hex value
+        )
+        server_challenge = crypt.seed_generator(app_settings.RANDOM_CHALLENGE_LENGTH)
+
         pbkdf2_hash, second_pbkdf2_part = crypt._simulate_client(
             plaintext_password="New password",
             init_pbkdf2_salt=fresh_user_profile.init_pbkdf2_salt,
@@ -42,11 +50,9 @@ class TestUserProfile(SecureLoginBaseTestCase):
             server_challenge=server_challenge,
         )
         check = crypt.check_secure_js_login(
-            fresh_user_profile.encrypted_part,
-            server_challenge,
-            pbkdf2_hash,
-            second_pbkdf2_part,
-            cnonce
+            secure_password="$".join([pbkdf2_hash, second_pbkdf2_part, cnonce]),
+            encrypted_part=fresh_user_profile.encrypted_part,
+            server_challenge=server_challenge,
         )
         self.assertTrue(check)
 

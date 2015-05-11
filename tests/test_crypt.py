@@ -94,7 +94,7 @@ class TestCrypt(unittest.TestCase):
     def test_wrong_key(self):
         with self.assertRaises(CryptError) as err:
             crypt.xor_crypt.decrypt(self.test_encrypted, key="bXr")
-        self.assertEqual("PBKDF2 hash test failed", err.exception.args[0])
+        self.assertEqual("XOR decrypted data: PBKDF2 hash test failed", err.exception.args[0])
 
     # e.g.: pbkdf2_sha1$100$DEBUG_789012$fb855b6c514ad76b5c0f99910f0a8bc5f1199f2555befd8ae016c4701dc7901b$BA4d
 
@@ -112,7 +112,7 @@ class TestCrypt(unittest.TestCase):
         # print(data)
         with self.assertRaises(CryptError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
-        self.assertEqual("PBKDF2 hash test failed", err.exception.args[0])
+        self.assertEqual("XOR decrypted data: PBKDF2 hash test failed", err.exception.args[0])
 
     def test_wrong_hash(self):
         data = self.test_encrypted
@@ -121,7 +121,7 @@ class TestCrypt(unittest.TestCase):
         # print(data)
         with self.assertRaises(CryptError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
-        self.assertEqual("PBKDF2 hash test failed", err.exception.args[0])
+        self.assertEqual("XOR decrypted data: PBKDF2 hash test failed", err.exception.args[0])
 
     def test_wrong_data1(self):
         data = self.test_encrypted
@@ -155,4 +155,4 @@ class TestCrypt(unittest.TestCase):
         # print(data)
         with self.assertRaises(CryptError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
-        self.assertEqual("PBKDF2 hash test failed", err.exception.args[0])
+        self.assertEqual("XOR decrypted data: PBKDF2 hash test failed", err.exception.args[0])

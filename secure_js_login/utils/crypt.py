@@ -286,12 +286,14 @@ class XorCryptor(object):
         else:
             crypted = [(t ^ k) for t, k in zip(txt, key)]
             crypted = bytes(crypted)
+        # log.debug("xor(txt=%r, key=%r): %r", txt, key, crypted)
         return crypted
 
     def encrypt(self, txt, key):
         """
         XOR ciphering with a PBKDF2 checksum
         """
+        # log.debug("encrypt(txt=%r, key=%r)", txt, key)
         assert isinstance(txt, six.text_type), "txt: %s is not text type!" % repr(txt)
         assert isinstance(key, six.text_type), "key: %s is not text type!" % repr(key)
 
@@ -313,6 +315,7 @@ class XorCryptor(object):
         1. Decrypt a XOR crypted String.
         2. Compare the inserted SHA salt-hash checksum.
         """
+        # log.debug("decrypt(txt=%r, key=%r)", txt, key)
         assert isinstance(txt, six.text_type), "txt: %s is not text type!" % repr(txt)
         assert isinstance(key, six.text_type), "key: %s is not text type!" % repr(key)
 
@@ -344,7 +347,7 @@ class XorCryptor(object):
 
         test = PBKDF2SHA1Hasher1().verify(decrypted, pbkdf2_hash)
         if not test:
-            raise CryptError("PBKDF2 hash test failed")
+            raise CryptError("XOR decrypted data: PBKDF2 hash test failed")
 
         return decrypted
 
@@ -386,6 +389,9 @@ def _simulate_client(plaintext_password, init_pbkdf2_salt, cnonce, server_challe
     A implementation of the JavaScript client part.
     Needful for finding bugs.
     """
+    # log.debug("_simulate_client(plaintext_password=%r, init_pbkdf2_salt=%r, cnonce=%r, server_challenge=%r)",
+    #     plaintext_password, init_pbkdf2_salt, cnonce, server_challenge
+    # )
     pbkdf2_temp_hash = hexlify_pbkdf2(
         plaintext_password,
         salt=init_pbkdf2_salt,
@@ -402,25 +408,108 @@ def _simulate_client(plaintext_password, init_pbkdf2_salt, cnonce, server_challe
         iterations=app_settings.ITERATIONS2,
         length=app_settings.PBKDF2_BYTE_LENGTH
     )
-    # log.debug("locals():\n%s", pprint.pformat(locals()))
+    # log.debug("_simulate_client() locals():\n%s", pprint.pformat(locals()))
     return pbkdf2_hash, second_pbkdf2_part
 
 
-def check_secure_js_login(encrypted_part, server_challenge, pbkdf2_hash, second_pbkdf2_part, cnonce):
+# PBKDF2_BYTE_LENGTH*2 + "$" + PBKDF2_BYTE_LENGTH + "$" + CLIENT_NONCE_LENGTH
+# or:
+# PBKDF2_HEX_LENGTH + "$" + PBKDF2_HALF_HEX_LENGTH + "$" + CLIENT_NONCE_LENGTH
+CLIENT_DATA_LEN = PBKDF2_HEX_LENGTH + PBKDF2_HALF_HEX_LENGTH + app_settings.CLIENT_NONCE_LENGTH + 2
+
+
+class HashValidator(object):
+    def __init__(self, name, length):
+        self.name = name
+        self.length = length
+        self.regexp = re.compile(r"^[a-f0-9]{%i}$" % length)
+
+    def validate(self, value):
+        if len(value)!=self.length:
+            raise ValueError("%s length error" % self.name)
+
+        if not self.regexp.match(value):
+            raise ValueError("%s regexp error" % self.name)
+
+PBKDF2_HASH_Validator = HashValidator(name="pbkdf2_hash", length=PBKDF2_HEX_LENGTH)
+SECOND_PBKDF2_PART_Validator = HashValidator(name="second_pbkdf2_part", length=PBKDF2_HALF_HEX_LENGTH)
+CLIENT_NONCE_HEX_Validator = HashValidator(name="cnonce", length=app_settings.CLIENT_NONCE_LENGTH)
+
+
+from django.core.cache import get_cache
+
+class AppCache(object):
+    KEY_PREFIX="secure-js-login"
+    def __init__(self, backend, key_suffix, timeout):
+        self.cache = get_cache(backend)
+        self.key_prefix = "%s_%s_" % (self.KEY_PREFIX, key_suffix)
+        self.timeout = timeout
+
+    def exists_or_add(self, key):
+        if self.cache.get(self.key_prefix + key) is None:
+            self.cache.set(self.key_prefix + key, True, self.timeout)
+            return False
+        return True
+
+
+cnonce_cache = AppCache(
+    app_settings.CACHE_NAME, "cnonce",
+    timeout=None # cache forever
+)
+
+def split_secure_password(secure_password):
+    if secure_password.count("$") != 2:
+        raise ValueError(
+            "No two $ (found: %i) in password found in: %r" % (
+                secure_password.count("$"), secure_password
+            )
+        )
+
+    pbkdf2_hash, second_pbkdf2_part, cnonce = secure_password.split("$")
+
+    CLIENT_NONCE_HEX_Validator.validate(cnonce)
+
+    if cnonce_cache.exists_or_add(cnonce):
+        raise ValueError("cnonce %r was used in the past!" % cnonce)
+
+    PBKDF2_HASH_Validator.validate(pbkdf2_hash)
+    SECOND_PBKDF2_PART_Validator.validate(second_pbkdf2_part)
+
+    return (pbkdf2_hash, second_pbkdf2_part, cnonce)
+
+
+def check_secure_js_login(secure_password, encrypted_part, server_challenge):
     """
     first_pbkdf2_part = xor_decrypt(encrypted_part, key=second_pbkdf2_part)
     test_hash = pbkdf2(first_pbkdf2_part, key=cnonce + server_challenge)
     compare test_hash with transmitted pbkdf2_hash
     """
-    # log.debug("check_secure_js_login()")
-    first_pbkdf2_part = xor_crypt.decrypt(encrypted_part, key=second_pbkdf2_part)
+    # log.debug("check_secure_js_login(secure_password=%r, encrypted_part=%r, server_challenge=%r)",
+    #     secure_password, encrypted_part, server_challenge
+    # )
+
+    try:
+        pbkdf2_hash, second_pbkdf2_part, cnonce = split_secure_password(secure_password)
+    except ValueError as err:
+        # log.error(err)
+        return
+
+    # log.debug("split_secure_password(): pbkdf2_hash=%r, second_pbkdf2_part=%r, cnonce=%r",
+    #     pbkdf2_hash, second_pbkdf2_part, cnonce
+    # )
+
+    try:
+        first_pbkdf2_part = xor_crypt.decrypt(encrypted_part, key=second_pbkdf2_part)
+    except CryptError:
+        return
+
     test_hash = hexlify_pbkdf2(
         first_pbkdf2_part,
         cnonce + server_challenge,
         iterations=app_settings.ITERATIONS2,
         length=app_settings.PBKDF2_BYTE_LENGTH
     )
-    # log.debug("locals():\n%s", pprint.pformat(locals()))
+    # log.debug("check_secure_js_login() locals():\n%s", pprint.pformat(locals()))
     return crypto.constant_time_compare(test_hash, pbkdf2_hash)
 
 

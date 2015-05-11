@@ -71,7 +71,9 @@ class UserProfile(UpdateTimeBaseModel):
         Create a XOR encrypted PBKDF2 salted checksum from a plaintext password.
         """
         init_pbkdf2_salt, encrypted_part = crypt.salt_hash_from_plaintext(password)
-        # log.debug("set init_pbkdf2_salt=%r and encrypted_part=%r", init_pbkdf2_salt, encrypted_part)
+        # log.debug("set_secure_login_data(%r): set init_pbkdf2_salt=%r and encrypted_part=%r",
+        #     password, init_pbkdf2_salt, encrypted_part
+        # )
         self.init_pbkdf2_salt = init_pbkdf2_salt
         self.encrypted_part = encrypted_part
         # log.info("Secure login data saved for user '%s'.", self.user)

@@ -12,8 +12,11 @@
 from __future__ import unicode_literals
 
 import logging
+from django.contrib.auth import get_user_model
 
 from django.contrib.auth.backends import ModelBackend
+from django.core.exceptions import ObjectDoesNotExist
+from secure_js_login.models import UserProfile
 
 from secure_js_login.utils import crypt
 
@@ -30,18 +33,39 @@ class SecureLoginAuthBackend(ModelBackend):
         # log.debug("authenticate with SecureLoginAuthBackend")
         # log.debug("Check with: %r" % repr(kwargs))
 
+        try:
+            server_challenge=kwargs.pop("server_challenge")
+        except KeyError:
+            # log.error("No 'server_callenge' given.")
+            return
+
+        UserModel = get_user_model()
         if username is None:
-            # log.error("No username given.")
+            username = kwargs.get(UserModel.USERNAME_FIELD)
+            # log.error("No username given, use: %r", username)
+        # else:
+            # log.debug("Username: %r", username)
+
+        try:
+            user = UserModel._default_manager.get_by_natural_key(username)
+        except UserModel.DoesNotExist:
+            # log.error("User %r not exists.", username)
             return
 
-        if tuple(kwargs.keys()) == ("password",):
-            # log.debug("normal auth, e.g.: normal django admin login pages was used")
+        try:
+            user_profile = UserProfile.objects.get_user_profile(user)
+        except UserProfile.DoesNotExist as err:
+            # log.error("Profile for user %r doesn't exists!" % user.username)
             return
 
-        user = kwargs.pop("user")
-
-        check = crypt.check_secure_js_login(**kwargs)
+        # log.debug("Call crypt.check_secure_js_login with: %s", repr(kwargs))
+        check = crypt.check_secure_js_login(
+            secure_password=kwargs["password"],
+            encrypted_part=user_profile.encrypted_part,
+            server_challenge=server_challenge,
+        )
         if check == True:
             # log.debug("Check ok!")
+            user.previous_login = user.last_login # Save for: secure_js_login.views.display_login_info()
             return user
         # log.debug("Check failed!")

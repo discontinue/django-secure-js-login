@@ -38,14 +38,6 @@ TEMPLATE_DEBUG = DEBUG
 ALLOWED_HOSTS = ["*"]
 
 
-# Disable cache
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
-    }
-}
-
-
 # Application definition
 
 INSTALLED_APPS = (

@@ -20,14 +20,16 @@ from __future__ import unicode_literals, print_function
 import pprint
 import sys
 import traceback
+import logging
 
 from django.contrib.auth import get_user_model, authenticate, SESSION_KEY
 from django.core.urlresolvers import reverse
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.test import SimpleTestCase
 
 from secure_js_login.models import UserProfile
 
+log = logging.getLogger("secure_js_login")
 
 try:
     import django_tools
@@ -50,10 +52,20 @@ class AdditionalAssertmentsMixin(object):
         print("*" * 79, file=sys.stderr)
         traceback.print_exc()
         print(" -" * 40, file=sys.stderr)
+
         if isinstance(page_source, HttpResponse):
+            print("Response info:", file=sys.stderr)
+            print("\ttype: %r" % type(page_source), file=sys.stderr)
+            print("\tstatus_code: %r" % page_source.status_code, file=sys.stderr)
             page_source = page_source.content
-        page_source = "\n".join([line for line in page_source.splitlines() if line.rstrip()])
-        print(page_source, file=sys.stderr)
+            print(" -" * 40, file=sys.stderr)
+
+        if not page_source.strip():
+            print("[page coure is empty!]", file=sys.stderr)
+        else:
+            page_source = "\n".join([line for line in page_source.splitlines() if line.rstrip()])
+            print(page_source, file=sys.stderr)
+
         print("*" * 79, file=sys.stderr)
         print("\n", flush=True, file=sys.stderr)
         raise
@@ -90,21 +102,24 @@ class AdditionalAssertmentsMixin(object):
         except AssertionError as err:
             self._verbose_assertion_error(page_source)
 
-    def assertSecureLoginFailed(self, page_source):
-        if isinstance(page_source, HttpResponse):
-            page_source = page_source.content.decode("utf-8")
+    def assertSecureLoginFailed(self, page_source1):
+        if isinstance(page_source1, HttpResponse):
+            page_source2 = page_source1.content.decode("utf-8")
             try:
+                self.assertNotIsInstance(page_source1, HttpResponseBadRequest)
                 self.assertNotIn(SESSION_KEY, self.client.session)
             except AssertionError as err:
-                self._verbose_assertion_error(page_source)
+                self._verbose_assertion_error(page_source1)
+        else:
+            page_source2=page_source1
 
         try:
-            self.assertNotIn("You are logged in.", page_source)
-            self.assertNotIn("Last login was:", page_source)
-            self.assertNotIn("Log out", page_source)
-            self.assertIn("error", page_source)
+            self.assertNotIn("You are logged in.", page_source2)
+            self.assertNotIn("Last login was:", page_source2)
+            self.assertNotIn("Log out", page_source2)
+            self.assertIn("error", page_source2)
         except AssertionError as err:
-            self._verbose_assertion_error(page_source)
+            self._verbose_assertion_error(page_source1)
 
 
 class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
@@ -132,6 +147,10 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
 
         # Always get the current profile with new salt (after settings new password!)
         self.superuser_profile = UserProfile.objects.get_user_profile(self.superuser)
+        # log.debug(
+        #     "user %s created: init_pbkdf2_salt=%r, encrypted_part=%r",
+        #     self.superuser, self.superuser_profile.init_pbkdf2_salt, self.superuser_profile.encrypted_part
+        # )
 
     def test_existing_superuser(self):
         """

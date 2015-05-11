@@ -14,13 +14,14 @@ from __future__ import unicode_literals
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
 
 from django.conf import settings
+from django.http import HttpResponseBadRequest
 from django.utils import six
 from django.utils.crypto import get_random_string
-from secure_js_login.forms import HashValidator, CLIENT_DATA_LEN
 from secure_js_login.utils import crypt
 
 
 from secure_js_login import settings as app_settings
+from secure_js_login.utils.crypt import CLIENT_DATA_LEN, HashValidator
 from tests.test_utils.manipulators import secure_pass_manipulator
 from tests.test_utils.test_cases import SecureLoginBaseTestCase, debug_response
 
@@ -50,6 +51,9 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         return self.server_challenge
 
     def _request_init_pbkdf2_salt(self):
+        if self.server_challenge is None:
+            self._request_server_challenge()
+
         if self.username is None:
             self.username = self.SUPER_USER_NAME
 
@@ -112,9 +116,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
 
     def test_post_empty_form(self):
         response = self.client.post(self.secure_login_url, {}, follow=True)
-        # debug_response(response)
-        self.assertFormError(response, 'form', 'username', 'This field is required.')
-        self.assertFormError(response, 'form', 'password', 'This field is required.')
+        self.assertIsInstance(response, HttpResponseBadRequest)
 
     def test_login(self):
         response = self._secure_login()
@@ -146,11 +148,15 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         # debug_response(response)
         self.assertSecureLoginSuccess(response)
 
+        old_cnonce = self.cnonce
+
         self.client.logout()
-        self.server_challenge = None # Request challenge again
+        self._reset_secure_data()
+        self.cnonce = old_cnonce
 
         # Try to login with the same cnonce again:
         response = self._secure_login()
+        self.assertEqual(self.cnonce, old_cnonce)
         # debug_response(response)
         self.assertSecureLoginFailed(response)
 
@@ -166,12 +172,13 @@ class TestSecureLogin(SecureLoginBaseTestCase):
 
         # Try to login with the same challenge again:
         response = self._secure_login()
-        # debug_response(response)
-        self.assertSecureLoginFailed(response)
+        # BadRequest, because challenge will always removed in session after use
+        self.assertIsInstance(response, HttpResponseBadRequest)
 
-        self.assertEqual(old_challenge, self.server_challenge)
-
-    def test_use_same_secure_password(self):
+    def test_replay_attack(self):
+        """
+        Try to use the same secure_password again
+        """
         response = self._secure_login()
         # debug_response(response)
         self.assertSecureLoginSuccess(response)
@@ -180,9 +187,15 @@ class TestSecureLogin(SecureLoginBaseTestCase):
 
         self.client.logout()
 
+        # Note: Every login POST request will delete the challenge from session
+        # So we must request the Login form again to save a new challenge to session
+        # Otherwise the view will only return a HttpResponseBadRequest
+        self._request_server_challenge()
+
         # Try to login with the same secure_password again:
         response = self._secure_login()
         # debug_response(response)
+        self.assertEqual(self.secure_password, old_secure_password)
         self.assertSecureLoginFailed(response)
 
     def test_request_salt_without_username(self):
