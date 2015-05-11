@@ -100,6 +100,6 @@ setup_info = dict(
         "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
         "Operating System :: OS Independent",
     ],
-    test_suite="runtests.run_tests",
+    test_suite="runtests.cli_run",
 )
 setup(**setup_info)

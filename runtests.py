@@ -22,30 +22,9 @@
 
 from __future__ import absolute_import, print_function
 
-import os
-import sys
-
-import django
-from django.conf import settings
-from django.test.utils import get_runner
-
-def run_tests(test_labels=None):
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.test_utils.test_settings'
-    django.setup()
-
-    TestRunner = get_runner(settings)
-    test_runner = TestRunner(
-        verbosity=2,
-        # failfast=True,
-    )
-
-    if test_labels is None:
-        test_labels = ['tests']
-    failures = test_runner.run_tests(test_labels)
-
-    sys.exit(bool(failures))
-
+from tests.runtests import cli_run
 
 if __name__ == "__main__":
-    run_tests(test_labels = sys.argv[1:])
+    cli_run()
+
 

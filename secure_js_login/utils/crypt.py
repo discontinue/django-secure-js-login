@@ -21,6 +21,7 @@ import re
 import sys
 import time
 import binascii
+from secure_js_login.utils.cache import AppCache
 
 if __name__ == "__main__":
     os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.test_utils.test_settings'
@@ -36,12 +37,11 @@ from secure_js_login import settings as app_settings
 
 log = logging.getLogger("secure_js_login")
 
-# Warning: Debug must always be False in productive environment!
-# DEBUG = True
-DEBUG = False
-if DEBUG:
-    import warnings
-    warnings.warn("Debugmode is on", UserWarning)
+
+cnonce_cache = AppCache(
+    app_settings.CACHE_NAME, "cnonce",
+    timeout=None # cache forever
+)
 
 
 PBKDF2_HEX_LENGTH = int(app_settings.PBKDF2_BYTE_LENGTH * 2)
@@ -83,7 +83,7 @@ class SeedGenerator(object):
     DEBUG=False
     def __call__(self, length):
         if self.DEBUG:
-            # log.critical("Use DEBUG seed!")
+            log.critical("DEBUG seed with length: %i used!", length)
             #            12345678901234567890123456789012345678901234567890
             debug_value="DEBUG_78901234567890123456789012345678901234567890"
             return debug_value[:length]
@@ -137,7 +137,7 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
     >>> PBKDF2SHA1Hasher(iterations=1000, length=16).verify(password="not secret", encoded=hash)
     Traceback (most recent call last):
         ...
-    AssertionError: wrong hash length
+    crypt.CryptError: wrong hash length
 
     >>> PBKDF2SHA1Hasher(iterations=1000, length=32).must_update(encoded=hash)
     False
@@ -204,7 +204,7 @@ class PBKDF2SHA1Hasher1(PBKDF2SHA1Hasher):
     >>> app_settings.ITERATIONS1=10
     >>> pbkdf2 = PBKDF2SHA1Hasher1().get_salt_hash("not secret")
     >>> pbkdf2
-    'pbkdf2_sha1$10$DEBUG_789012$7a4c36dc97dcea39842f80e6034b431e0235cfe742f819362db794d385368268'
+    'pbkdf2_sha1$10$DEBUG$996599c7bfe3645f1d83f424'
     """
     def __init__(self):
         self.iterations = app_settings.ITERATIONS1
@@ -218,7 +218,7 @@ class PBKDF2SHA1Hasher2(PBKDF2SHA1Hasher):
     >>> app_settings.ITERATIONS2=15
     >>> pbkdf2 = PBKDF2SHA1Hasher2().get_salt_hash("not secret")
     >>> pbkdf2
-    'pbkdf2_sha1$15$DEBUG_789012$b232825d8a4aa84cbac0bbb2186fe08eb374e77d6d6a78061368fd59cdc7e35f'
+    'pbkdf2_sha1$15$DEBUG$43fae15d1fe996e63df22f1c'
     """
     def __init__(self):
         self.iterations = app_settings.ITERATIONS2
@@ -241,7 +241,7 @@ class XorCryptor(object):
 
     >>> encrypted = xor.encrypt("1234", "ABCD")
     >>> encrypted
-    'pbkdf2_sha1$10$DEBUG_789012$77adb6b9ffb2cc958747997da971a2930cadc60ba0fceb2cc9d8b0f0cfed058e$cHBwcA=='
+    'pbkdf2_sha1$10$DEBUG$bb6212418fade7c4101179b0$70707070'
 
     >>> xor.decrypt(encrypted, "ABCD")
     '1234'
@@ -249,24 +249,17 @@ class XorCryptor(object):
     >>> xor.decrypt(encrypted, "AXXD")
     Traceback (most recent call last):
     ...
-    CryptError: PBKDF2 hash test failed
+    crypt.CryptError: XOR decrypted data: PBKDF2 hash test failed
 
-    >>> wrong = encrypted.replace("971a29", "XXXXXX")
-    >>> xor.decrypt(wrong, "ABCD")
+    >>> xor.decrypt('pbkdf2_sha1$10$DEBUG$bb6212418fade7c4101179b0$70XxxX70', "ABCD")
     Traceback (most recent call last):
     ...
-    CryptError: PBKDF2 hash test failed
+    crypt.CryptError: unhexlify error: Non-hexadecimal digit found with data: '70XxxX70'
 
     >>> xor.decrypt(encrypted, "wrong pass")
     Traceback (most recent call last):
     ...
-    CryptError: encrypt error: b'pppp' and 'wrong pass' must have the same length!
-
-    >>> wrong = encrypted.replace("cA==", "XXXXXX")
-    >>> xor.decrypt(wrong, "ABCD")
-    Traceback (most recent call last):
-    ...
-    CryptError: b64decode error: Incorrect padding with data: 'cHBwXXXXXX'
+    crypt.CryptError: encrypt error: b'pppp' and 'wrong pass' must have the same length!
     """
     def xor(self, txt, key):
         """
@@ -363,9 +356,9 @@ def salt_hash_from_plaintext(password):
 
     >>> salt, data = salt_hash_from_plaintext("test")
     >>> salt
-    'DEBUG_789012'
+    'DEBUG'
     >>> data
-    'pbkdf2_sha1$10$DEBUG_789012$9345c4d9ebcdae15931fefc11199022da569673b81d54d768ec449b14c3d5f1c$CQVQBlNbAAAAVQhaBwtQBABRV1UBA1AIU10GUlQLUVU='
+    'pbkdf2_sha1$10$DEBUG$14bcd36d8a5459742b6252e8$505b0004545007565e510308'
     """
     init_pbkdf2_salt = seed_generator(app_settings.PBKDF2_SALT_LENGTH)
     pbkdf2_temp_hash = hexlify_pbkdf2(
@@ -436,26 +429,7 @@ SECOND_PBKDF2_PART_Validator = HashValidator(name="second_pbkdf2_part", length=P
 CLIENT_NONCE_HEX_Validator = HashValidator(name="cnonce", length=app_settings.CLIENT_NONCE_LENGTH)
 
 
-from django.core.cache import get_cache
 
-class AppCache(object):
-    KEY_PREFIX="secure-js-login"
-    def __init__(self, backend, key_suffix, timeout):
-        self.cache = get_cache(backend)
-        self.key_prefix = "%s_%s_" % (self.KEY_PREFIX, key_suffix)
-        self.timeout = timeout
-
-    def exists_or_add(self, key):
-        if self.cache.get(self.key_prefix + key) is None:
-            self.cache.set(self.key_prefix + key, True, self.timeout)
-            return False
-        return True
-
-
-cnonce_cache = AppCache(
-    app_settings.CACHE_NAME, "cnonce",
-    timeout=None # cache forever
-)
 
 def split_secure_password(secure_password):
     if secure_password.count("$") != 2:
