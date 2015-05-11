@@ -148,9 +148,10 @@ to run the Live-Server-Tests, install [[https://pypi.python.org/pypi/selenium|se
 
 == project links
 
-| Github              | [[http://github.com/jedie/django-secure-js-login]]
-| Python Packages     | [[http://pypi.python.org/pypi/django-secure-js-login/]]
+| Github              | [[https://github.com/jedie/django-secure-js-login]]
+| Python Packages     | [[https://pypi.python.org/pypi/django-secure-js-login/]]
 | Travis CI           | [[https://travis-ci.org/jedie/django-secure-js-login/]]
+| Coveralls           | [[https://coveralls.io/r/jedie/django-secure-js-login]]
 
 
 == Used JavaScript Implementations

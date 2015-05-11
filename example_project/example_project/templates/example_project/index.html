@@ -5,10 +5,38 @@
 
 {% block content %}
     <h1>Example project test page.</h1>
-    <p>Try out:</p>
+    <h2>Try out:</h2>
     <ul>
-        <li><a href="{% url 'secure-js-login:login' %}">secure JS login</a></li>
-        <li><a href="{% url 'honypot-login:login' %}">honypot login</a></li>
-        <li><a href="{% url 'admin:index' %}">Django Admin</a></li>
+        <li><a href="{% url 'secure-js-login:login' %}">{% url 'secure-js-login:login' %} - secure JS login</a></li>
+        <li><a href="{% url 'honypot-login:login' %}">{% url 'honypot-login:login' %} - honypot login</a></li>
+        <li><a href="{% url 'admin:index' %}">{% url 'admin:index' %} - Django Admin</a></li>
     </ul>
+    <hr />
+    <h2>project links</h2>
+    <table>
+        <tr>
+            <td>Github</td>
+            <td>
+                <a href="https://github.com/jedie/django-secure-js-login">github.com/jedie/django-secure-js-login</a>
+            </td>
+        </tr>
+        <tr>
+            <td>Python Packages</td>
+            <td>
+                <a href="https://pypi.python.org/pypi/django-secure-js-login/">pypi.python.org/pypi/django-secure-js-login</a>
+            </td>
+        </tr>
+        <tr>
+            <td>Travis CI</td>
+            <td>
+                <a href="https://travis-ci.org/jedie/django-secure-js-login/">travis-ci.org/jedie/django-secure-js-login</a>
+            </td>
+        </tr>
+        <tr>
+            <td>Coveralls</td>
+            <td>
+                <a href="https://coveralls.io/r/jedie/django-secure-js-login/">coveralls.io/r/jedie/django-secure-js-login</a>
+            </td>
+        </tr>
+    </table>
 {% endblock content %}
