@@ -38,7 +38,7 @@ def run_unittests(test_labels=None):
     TestRunner = get_runner(settings)
     test_runner = TestRunner(
         verbosity=2,
-        failfast=True,
+        # failfast=True,
     )
 
     if test_labels is None or test_labels == ["test"]:
