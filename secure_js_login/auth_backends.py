@@ -17,6 +17,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
 from django.core.exceptions import ObjectDoesNotExist
 from secure_js_login.models import UserProfile
+from secure_js_login.signals import secure_js_login_failed
 
 from secure_js_login.utils import crypt
 
@@ -29,41 +30,43 @@ class SecureLoginAuthBackend(ModelBackend):
     Used for PyLucid JS-SHA-Login.
     Check challenge and limit access to sites.
     """
-    def authenticate(self, username=None, **kwargs):
+    def authenticate(self, username=None, secure_password=None, server_challenge=None):
         # log.debug("authenticate with SecureLoginAuthBackend")
         # log.debug("Check with: %r" % repr(kwargs))
 
-        try:
-            server_challenge=kwargs.pop("server_challenge")
-        except KeyError:
-            # log.error("No 'server_callenge' given.")
-            return
-
         UserModel = get_user_model()
-        if username is None:
-            username = kwargs.get(UserModel.USERNAME_FIELD)
-            # log.error("No username given, use: %r", username)
-        # else:
-            # log.debug("Username: %r", username)
-
         try:
             user = UserModel._default_manager.get_by_natural_key(username)
-        except UserModel.DoesNotExist:
-            # log.error("User %r not exists.", username)
+        except UserModel.DoesNotExist as err:
+            secure_js_login_failed.send(
+                sender=self.__class__,
+                reason="User %r not exists: %s" % (username, err)
+            )
             return
 
         try:
             user_profile = UserProfile.objects.get_user_profile(user)
         except UserProfile.DoesNotExist as err:
-            # log.error("Profile for user %r doesn't exists!" % user.username)
+            secure_js_login_failed.send(
+                sender=self.__class__,
+                reason="Profile for user %r doesn't exists: %s" % (user.username, err)
+            )
             return
 
         # log.debug("Call crypt.check_secure_js_login with: %s", repr(kwargs))
-        check = crypt.check_secure_js_login(
-            secure_password=kwargs["password"],
-            encrypted_part=user_profile.encrypted_part,
-            server_challenge=server_challenge,
-        )
+        try:
+            check = crypt.check_secure_js_login(
+                secure_password=secure_password,
+                encrypted_part=user_profile.encrypted_part,
+                server_challenge=server_challenge,
+            )
+        except crypt.CryptError as err:
+            secure_js_login_failed.send(
+                sender=self.__class__,
+                reason="crypt.check_secure_js_login() error: %s" % err
+            )
+            return
+
         if check == True:
             # log.debug("Check ok!")
             user.previous_login = user.last_login # Save for: secure_js_login.views.display_login_info()

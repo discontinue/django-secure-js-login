@@ -29,12 +29,15 @@ from django.contrib.auth.signals import user_logged_in, user_login_failed
 
 # auth own stuff
 from secure_js_login.models import CNONCE_CACHE, UserProfile
+from secure_js_login.signals import secure_js_login_failed
 from secure_js_login.utils import crypt
 from secure_js_login.forms import WrongUserError, UsernameForm, SecureLoginForm
 from secure_js_login import settings as app_settings
 
 
 log = logging.getLogger("secure_js_login")
+
+SERVER_CHALLENGE_KEY = "server_challenge"
 
 
 def log_view(func):
@@ -71,11 +74,11 @@ def get_salt(request):
         return HttpResponseBadRequest()
 
     try:
-        request.old_server_challenge = request.session["old_server_challenge"]
+        request.server_challenge = request.session[SERVER_CHALLENGE_KEY]
     except KeyError as err:
         # log.error("Can't get challenge from session: %s", err)
         return HttpResponseBadRequest()
-    # log.debug("old challenge: %r", request.old_server_challenge)
+    # log.debug("old challenge: %r", request.server_challenge)
 
     send_pseudo_salt=True
 
@@ -134,14 +137,15 @@ def secure_js_login(request):
     if request.method == "POST":
         # POST -> Compare login data
         try:
-            request.old_server_challenge = request.session.pop("old_server_challenge")
-        except KeyError as err:
-            # log.error("Can't get old callenge from session: %s", err)
+            request.server_challenge = request.session.pop(SERVER_CHALLENGE_KEY)
+        except KeyError:
+            secure_js_login_failed.send(sender=secure_js_login,
+                reason="Can't get %r from session!" % SERVER_CHALLENGE_KEY)
             return HttpResponseBadRequest()
-        # log.debug("old challenge: %r", request.old_server_challenge)
+        # log.debug("old challenge: %r", request.server_challenge)
     else:
         # GET: request login form
-        request.session["old_server_challenge"] = new_server_challenge
+        request.session[SERVER_CHALLENGE_KEY] = new_server_challenge
         # log.debug("Save challenge %r for next POST", new_server_challenge)
 
     response = login(request,
@@ -165,7 +169,7 @@ def secure_js_login(request):
 
     if request.method == "POST" and not request.user.is_authenticated():
         # log.debug("Logged in failed: Save new challenge to session")
-        request.session["old_server_challenge"] = new_server_challenge
+        request.session[SERVER_CHALLENGE_KEY] = new_server_challenge
 
     return response
 

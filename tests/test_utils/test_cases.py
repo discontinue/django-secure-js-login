@@ -28,6 +28,7 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.test import SimpleTestCase
 
 from secure_js_login.models import UserProfile
+from secure_js_login.signals import secure_js_login_failed
 
 log = logging.getLogger("secure_js_login")
 
@@ -87,6 +88,7 @@ class AdditionalAssertmentsMixin(object):
                 raise
 
     def assertSecureLoginSuccess(self, page_source):
+        self.assertNoFailedSignals()
         if isinstance(page_source, HttpResponse):
             page_source = page_source.content.decode("utf-8")
             try:
@@ -133,8 +135,32 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
         cls.get_salt_url = reverse("secure-js-login:get_salt")
         cls.honypot_url = reverse("honypot-login:login")
 
+    def _secure_js_login_failed_signal_receiver(self, **kwargs):
+        print("\n\t*** secure_js_login_failed signal:", file=sys.stderr)
+        print("\t - sender: %r" % kwargs["sender"], file=sys.stderr)
+        print("\t - reason: %r" % kwargs["reason"], file=sys.stderr)
+        self.signals.append(kwargs)
+
+    def assertFailedSignals(self, *messages):
+        existing_reasons = ", ".join([signal["reason"] for signal in self.signals])
+        should_reasons = ", ".join(messages)
+        self.assertEqual(existing_reasons, should_reasons)
+        print("\t+++ Signals ok", file=sys.stderr)
+
+    def assertNoFailedSignals(self):
+        existing_reasons = [signal["reason"] for signal in self.signals]
+        self.assertEqual(len(existing_reasons), 0,
+             msg="They should be no signals, but there are: \n\t%s" % "\n\t".join(existing_reasons)
+        )
+
+    def reset_signal_storage(self):
+        self.signals = []
+
     def setUp(self):
         super(SecureLoginBaseTestCase, self).setUp()
+        self.reset_signal_storage()
+        secure_js_login_failed.connect(self._secure_js_login_failed_signal_receiver)
+
         self.superuser, created = get_user_model().objects.get_or_create(
             username=self.SUPER_USER_NAME
         )
@@ -152,14 +178,7 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
         #     self.superuser, self.superuser_profile.init_pbkdf2_salt, self.superuser_profile.encrypted_part
         # )
 
-    def test_existing_superuser(self):
-        """
-        Tests that assume that:
-        * The created test user exists
-        * The normal django password is ok
-        * the default django authenticate backend worked
-        """
-        self.assertTrue(self.superuser.check_password(self.SUPER_USER_PASS))
-        user = authenticate(username=self.SUPER_USER_NAME, password=self.SUPER_USER_PASS)
-        self.assertIsInstance(user, get_user_model())
+    def tearDown(self):
+        super(SecureLoginBaseTestCase, self).tearDown()
+        secure_js_login_failed.disconnect(self._secure_js_login_failed_signal_receiver)
 

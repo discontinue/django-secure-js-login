@@ -11,27 +11,18 @@
 
 from __future__ import unicode_literals
 
-import codecs
 import hashlib
 import logging
-import os
-import pprint
-import random
 import re
-import sys
-import time
 import binascii
-from secure_js_login.utils.cache import AppCache
 
-if __name__ == "__main__":
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.test_utils.test_settings'
-    print("\nUse DJANGO_SETTINGS_MODULE=%r" % os.environ["DJANGO_SETTINGS_MODULE"])
-
-from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.utils import six, crypto
 from django.utils.encoding import force_bytes, force_text
 from django.contrib.auth.hashers import PBKDF2SHA1PasswordHasher
 
+from secure_js_login.signals import secure_js_login_failed
+from secure_js_login.utils.cache import AppCache
 from secure_js_login import settings as app_settings
 
 
@@ -419,10 +410,10 @@ class HashValidator(object):
 
     def validate(self, value):
         if len(value)!=self.length:
-            raise ValueError("%s length error" % self.name)
+            raise PermissionDenied("%s length error" % self.name)
 
         if not self.regexp.match(value):
-            raise ValueError("%s regexp error" % self.name)
+            raise PermissionDenied("%s regexp error" % self.name)
 
 PBKDF2_HASH_Validator = HashValidator(name="pbkdf2_hash", length=PBKDF2_HEX_LENGTH)
 SECOND_PBKDF2_PART_Validator = HashValidator(name="second_pbkdf2_part", length=PBKDF2_HALF_HEX_LENGTH)
@@ -433,8 +424,8 @@ CLIENT_NONCE_HEX_Validator = HashValidator(name="cnonce", length=app_settings.CL
 
 def split_secure_password(secure_password):
     if secure_password.count("$") != 2:
-        raise ValueError(
-            "No two $ (found: %i) in password found in: %r" % (
+        raise PermissionDenied(
+            "No two '$' (found: %i) in secure_password: %r !" % (
                 secure_password.count("$"), secure_password
             )
         )
@@ -444,7 +435,7 @@ def split_secure_password(secure_password):
     CLIENT_NONCE_HEX_Validator.validate(cnonce)
 
     if cnonce_cache.exists_or_add(cnonce):
-        raise ValueError("cnonce %r was used in the past!" % cnonce)
+        raise PermissionDenied("cnonce %r was used in the past!" % cnonce)
 
     PBKDF2_HASH_Validator.validate(pbkdf2_hash)
     SECOND_PBKDF2_PART_Validator.validate(second_pbkdf2_part)
@@ -464,18 +455,16 @@ def check_secure_js_login(secure_password, encrypted_part, server_challenge):
 
     try:
         pbkdf2_hash, second_pbkdf2_part, cnonce = split_secure_password(secure_password)
-    except ValueError as err:
-        # log.error(err)
-        return
+    except PermissionDenied as err:
+        secure_js_login_failed.send(sender=check_secure_js_login,
+                                    reason="%s" % err)
+        raise # Don't check other authentication backends that follow
 
     # log.debug("split_secure_password(): pbkdf2_hash=%r, second_pbkdf2_part=%r, cnonce=%r",
     #     pbkdf2_hash, second_pbkdf2_part, cnonce
     # )
 
-    try:
-        first_pbkdf2_part = xor_crypt.decrypt(encrypted_part, key=second_pbkdf2_part)
-    except CryptError:
-        return
+    first_pbkdf2_part = xor_crypt.decrypt(encrypted_part, key=second_pbkdf2_part)
 
     test_hash = hexlify_pbkdf2(
         first_pbkdf2_part,
@@ -484,7 +473,12 @@ def check_secure_js_login(secure_password, encrypted_part, server_challenge):
         length=app_settings.PBKDF2_BYTE_LENGTH
     )
     # log.debug("check_secure_js_login() locals():\n%s", pprint.pformat(locals()))
-    return crypto.constant_time_compare(test_hash, pbkdf2_hash)
+    check = crypto.constant_time_compare(test_hash, pbkdf2_hash)
+    if check!=True:
+        secure_js_login_failed.send(sender=check_secure_js_login,
+                                    reason="test_hash != pbkdf2_hash")
+        raise PermissionDenied # Don't check other authentication backends that follow
+    return True
 
 
 if __name__ == "__main__":

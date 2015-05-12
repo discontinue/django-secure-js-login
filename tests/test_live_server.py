@@ -245,6 +245,14 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
         )
         # Check new loaded page content:
         self.assertSecureLoginFailed(self.driver.page_source)
+        self.assertFailedSignals(
+            "crypt.check_secure_js_login() error: XOR decrypted data: PBKDF2 hash test failed",
+            (
+                "SecureLoginForm error:"
+                " '__all__':Please enter a correct username and password."
+                " Note that both fields may be case-sensitive."
+            )
+        )
 
     def test_secure_login_wrong_username(self):
         self._secure_login(
@@ -253,7 +261,21 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
         )
         # Check new loaded page content:
         self.assertSecureLoginFailed(self.driver.page_source)
+        self.maxDiff=None
+        self.assertFailedSignals(
+            ( # The salt request:
+                "UsernameForm error:"
+                " 'username':Please enter a correct username and password."
+                " Note that both fields may be case-sensitive."
+            ),
+            ( # The login request:
+                "SecureLoginForm error:"
+                " '__all__':Please enter a correct username and password."
+                " Note that both fields may be case-sensitive."
+            )
+        )
 
     def test_secure_login_wrong_and_then_right(self):
         self.test_secure_login_wrong_password()
+        self.reset_signal_storage()
         self.test_secure_login_success()

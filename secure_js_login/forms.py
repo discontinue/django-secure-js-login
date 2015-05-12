@@ -22,6 +22,7 @@ from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils.translation import ugettext as _
 from django.contrib.auth import authenticate
 from django.utils.text import capfirst
+from secure_js_login.signals import secure_js_login_failed
 
 from secure_js_login.utils import crypt
 from secure_js_login.models import UserProfile, CNONCE_CACHE
@@ -52,7 +53,7 @@ class UsernameForm(AuthenticationForm):
     def _raise_validate_error(self, msg):
         # log.debug("%s error: %s", self.__class__.__name__, msg)
         if not settings.DEBUG:
-            msg = ERROR_MESSAGE % {'username': self.username_field.verbose_name}
+            msg = ERROR_MESSAGE
 
         raise forms.ValidationError(
             msg,
@@ -81,8 +82,22 @@ class UsernameForm(AuthenticationForm):
             )
         return username
 
+    def is_valid(self):
+        valid=super(UsernameForm, self).is_valid()
+        if not valid:
+            # FIXME: How to made this simpler?!?
+            form_errors = self.errors.as_data()
+            errors=[]
+            for field_name, field_errors in sorted(form_errors.items()):
+                field_errors = ",".join([",".join(field_error.messages) for field_error in field_errors])
+                errors.append("%r:%s" % (field_name, field_errors))
+            errors=", ".join(errors)
 
+            reason = "%s error: %s" % (self.__class__.__name__, errors)
+            secure_js_login_failed.send(sender=SecureLoginForm, reason=reason)
+            # log.error("POST: %r form errors: %s" % (repr(self.request.POST), reason))
 
+        return valid
 
 
 class SecureLoginForm(UsernameForm):
@@ -98,17 +113,21 @@ class SecureLoginForm(UsernameForm):
 
     def clean(self):
         username = self.cleaned_data.get('username')
-        password = self.cleaned_data.get('password')
+        secure_password = self.cleaned_data.get('password')
 
         assert self.request is not None
         try:
-            server_challenge = self.request.old_server_challenge
+            server_challenge = self.request.server_challenge
         except AttributeError as err:
-            self._raise_validate_error("request.old_server_challenge not set: %s" % err)
+            self._raise_validate_error("request.server_challenge not set: %s" % err)
         # log.debug("Challenge from session: %r", server_challenge)
 
-        if username and password:
-            self.user_cache = authenticate(username=username, password=password, server_challenge=server_challenge)
+        if username and secure_password:
+            self.user_cache = authenticate(
+                username=username,
+                secure_password=secure_password,
+                server_challenge=server_challenge
+            )
             # log.debug("Get %r back from authenticate()", self.user_cache)
             if self.user_cache is None:
                 self._raise_validate_error("authenticate() check failed.")
@@ -118,3 +137,5 @@ class SecureLoginForm(UsernameForm):
                 # log.debug("confirm_login_allowed() - OK")
 
         return self.cleaned_data
+
+
