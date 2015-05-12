@@ -134,10 +134,10 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
         ...
     AssertionError: wrong iterations
 
-    >>> PBKDF2SHA1Hasher(iterations=1000, length=16).verify(password="not secret", encoded=hash)
-    Traceback (most recent call last):
-        ...
-    crypt.CryptError: wrong hash length
+    >>> try:
+    ...     PBKDF2SHA1Hasher(iterations=1000, length=16).verify(password="not secret", encoded=hash)
+    ... except CryptError as err:print(err)
+    wrong hash length
 
     >>> PBKDF2SHA1Hasher(iterations=1000, length=32).must_update(encoded=hash)
     False
@@ -246,20 +246,20 @@ class XorCryptor(object):
     >>> xor.decrypt(encrypted, "ABCD")
     '1234'
 
-    >>> xor.decrypt(encrypted, "AXXD")
-    Traceback (most recent call last):
-    ...
-    crypt.CryptError: XOR decrypted data: PBKDF2 hash test failed
+    >>> try:
+    ...     xor.decrypt(encrypted, "AXXD")
+    ... except CryptError as err: print(err)
+    XOR decrypted data: PBKDF2 hash test failed
 
-    >>> xor.decrypt('pbkdf2_sha1$10$DEBUG$bb6212418fade7c4101179b0$70XxxX70', "ABCD")
-    Traceback (most recent call last):
-    ...
-    crypt.CryptError: unhexlify error: Non-hexadecimal digit found with data: '70XxxX70'
+    >>> try:
+    ...     xor.decrypt('pbkdf2_sha1$10$DEBUG$bb6212418fade7c4101179b0$70XxxX70', "ABCD")
+    ... except CryptError as err: print(err)
+    unhexlify error: Non-hexadecimal digit found with data: '70XxxX70'
 
-    >>> xor.decrypt(encrypted, "wrong pass")
-    Traceback (most recent call last):
-    ...
-    crypt.CryptError: encrypt error: b'pppp' and 'wrong pass' must have the same length!
+    >>> try:
+    ...     xor.decrypt(encrypted, "wrong pass")
+    ... except CryptError as err: print(err)
+    encrypt error: b'pppp' and 'wrong pass' must have the same length!
     """
     def xor(self, txt, key):
         """
