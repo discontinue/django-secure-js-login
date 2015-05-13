@@ -125,11 +125,17 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         )
         return response
 
-    def test_login_page(self):
+    def test_secure_login_page(self):
         response = self.client.get(self.secure_login_url)
         # debug_response(response)
-        self.assertContains(response, '<label for="id_username" class="required">Username:</label>', html=True)
-        self.assertContains(response, '<label for="id_password" class="required">Password:</label>', html=True)
+        self.assertContainsHtml(response,
+            '<input id="id_username" maxlength="254" name="username" type="text" class="required" />'
+        )
+        self.assertContainsHtml(response,
+            '<input id="id_password" maxlength="%i" name="password" type="password" class="required"/>' % (
+                crypt.CLIENT_DATA_LEN
+            )
+        )
 
     def test_post_empty_form1(self):
         response = self.client.post(self.secure_login_url, {}, follow=True)

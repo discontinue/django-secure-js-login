@@ -110,6 +110,11 @@ class SecureLoginForm(UsernameForm):
         max_length=crypt.CLIENT_DATA_LEN,
         widget=forms.PasswordInput
     )
+    def __init__(self, *args, **kwargs):
+        super(SecureLoginForm, self).__init__(*args, **kwargs)
+        # Not needed for django >= v1.8 !
+        for visible in self.visible_fields():
+            visible.field.widget.attrs['class'] = "required"
 
     def _secure_js_login_failed_signal_handler(self, sender, reason, **kwargs):
         if settings.DEBUG:
