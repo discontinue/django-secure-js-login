@@ -140,7 +140,7 @@ def secure_js_login(request):
             request.server_challenge = request.session.pop(SERVER_CHALLENGE_KEY)
         except KeyError:
             secure_js_login_failed.send(sender=secure_js_login,
-                reason="Can't get %r from session!" % SERVER_CHALLENGE_KEY)
+                reason="Can't get '%s' from session!" % SERVER_CHALLENGE_KEY)
             return HttpResponseBadRequest()
         # log.debug("old challenge: %r", request.server_challenge)
     else:

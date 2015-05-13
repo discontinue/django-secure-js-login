@@ -63,13 +63,13 @@ class UsernameForm(AuthenticationForm):
         try:
             self.user_cache = get_user_model().objects.get(username=username)
         except ObjectDoesNotExist as err:
-            raise forms.ValidationError("User %r doesn't exists!" % username)
+            raise forms.ValidationError("User '%s' doesn't exists!" % username)
 
         try:
             self.user_profile = UserProfile.objects.get_user_profile(self.user_cache)
         except ObjectDoesNotExist as err:
             raise forms.ValidationError(
-                "Profile for user %r doesn't exists!" % self.user_cache.username
+                "Profile for user '%s' doesn't exists!" % self.user_cache.username
             )
         return username
 
@@ -90,7 +90,7 @@ class UsernameForm(AuthenticationForm):
 
             reason = "%s error: %s" % (self.__class__.__name__, errors)
             secure_js_login_failed.send(sender=self.__class__.__name__, reason=reason)
-            # log.error("POST: %r form errors: %s" % (repr(self.request.POST), reason))
+            # log.error("POST: '%s' form errors: %s" % (repr(self.request.POST), reason))
 
             if not settings.DEBUG:
                 # Remove "real" form errors with common message
@@ -129,7 +129,7 @@ class SecureLoginForm(UsernameForm):
             server_challenge = self.request.server_challenge
         except AttributeError as err:
             forms.ValidationError("request.server_challenge not set: %s" % err)
-        # log.debug("Challenge from session: %r", server_challenge)
+        # log.debug("Challenge from session: '%s'", server_challenge)
 
         if username and secure_password:
             if settings.DEBUG:
@@ -143,7 +143,7 @@ class SecureLoginForm(UsernameForm):
             if settings.DEBUG:
                 secure_js_login_failed.disconnect(self._secure_js_login_failed_signal_handler)
 
-            # log.debug("Get %r back from authenticate()", self.user_cache)
+            # log.debug("Get '%s' back from authenticate()", self.user_cache)
             if self.user_cache is None:
                 raise forms.ValidationError(
                     "authenticate() check failed.",

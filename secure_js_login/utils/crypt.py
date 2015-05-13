@@ -259,26 +259,26 @@ class XorCryptor(object):
         assert isinstance(key, six.binary_type), "key: %s is not binary type!" % repr(key)
 
         if len(txt) != len(key):
-            raise CryptLengthError("XOR cipher error: %r and %r must have the same length!" % (txt, key))
+            raise CryptLengthError("XOR cipher error: '%s' and '%s' must have the same length!" % (txt, key))
 
         if six.PY2:
             crypted = "".join([chr(ord(t) ^ ord(k)) for t, k in zip(txt, key)])
         else:
             crypted = [(t ^ k) for t, k in zip(txt, key)]
             crypted = bytes(crypted)
-        # log.debug("xor(txt=%r, key=%r): %r", txt, key, crypted)
+        # log.debug("xor(txt='%s', key='%s'): '%s'", txt, key, crypted)
         return crypted
 
     def encrypt(self, txt, key):
         """
         XOR ciphering with a PBKDF2 checksum
         """
-        # log.debug("encrypt(txt=%r, key=%r)", txt, key)
+        # log.debug("encrypt(txt='%s', key='%s')", txt, key)
         assert isinstance(txt, six.text_type), "txt: %s is not text type!" % repr(txt)
         assert isinstance(key, six.text_type), "key: %s is not text type!" % repr(key)
 
         if len(txt) != len(key):
-            raise CryptLengthError("encrypt error: %r and %r must have the same length!" % (txt, key))
+            raise CryptLengthError("encrypt error: '%s' and '%s' must have the same length!" % (txt, key))
 
         pbkdf2_hash = PBKDF2SHA1Hasher1().get_salt_hash(txt)
 
@@ -295,7 +295,7 @@ class XorCryptor(object):
         1. Decrypt a XOR crypted String.
         2. Compare the inserted SHA salt-hash checksum.
         """
-        # log.debug("decrypt(txt=%r, key=%r)", txt, key)
+        # log.debug("decrypt(txt='%s', key='%s')", txt, key)
         assert isinstance(txt, six.text_type), "txt: %s is not text type!" % repr(txt)
         assert isinstance(key, six.text_type), "key: %s is not text type!" % repr(key)
 
@@ -315,7 +315,7 @@ class XorCryptor(object):
             raise SecureJSLoginError("unhexlify error: %s with data: %s" % (err, repr(crypted)))
 
         if len(crypted) != len(key):
-            raise SecureJSLoginError("encrypt error: %r and %r must have the same length!" % (crypted, key))
+            raise SecureJSLoginError("encrypt error: '%s' and '%s' must have the same length!" % (crypted, key))
 
         key=force_bytes(key)
         decrypted = self.xor(crypted, key)
@@ -369,7 +369,7 @@ def _simulate_client(plaintext_password, init_pbkdf2_salt, cnonce, server_challe
     A implementation of the JavaScript client part.
     Needful for finding bugs.
     """
-    # log.debug("_simulate_client(plaintext_password=%r, init_pbkdf2_salt=%r, cnonce=%r, server_challenge=%r)",
+    # log.debug("_simulate_client(plaintext_password='%s', init_pbkdf2_salt='%s', cnonce='%s', server_challenge='%s')",
     #     plaintext_password, init_pbkdf2_salt, cnonce, server_challenge
     # )
     pbkdf2_temp_hash = hexlify_pbkdf2(
@@ -421,7 +421,7 @@ CLIENT_NONCE_HEX_Validator = HashValidator(name="cnonce", length=app_settings.CL
 def split_secure_password(secure_password):
     if secure_password.count("$") != 2:
         raise SecureJSLoginError(
-            "No two '$' (found: %i) in secure_password: %r !" % (
+            "No two '$' (found: %i) in secure_password: '%s' !" % (
                 secure_password.count("$"), secure_password
             )
         )
@@ -431,7 +431,7 @@ def split_secure_password(secure_password):
     CLIENT_NONCE_HEX_Validator.validate(cnonce)
 
     if cnonce_cache.exists_or_add(cnonce):
-        raise SecureJSLoginError("cnonce %r was used in the past!" % cnonce)
+        raise SecureJSLoginError("cnonce '%s' was used in the past!" % cnonce)
 
     PBKDF2_HASH_Validator.validate(pbkdf2_hash)
     SECOND_PBKDF2_PART_Validator.validate(second_pbkdf2_part)
@@ -445,12 +445,12 @@ def check_secure_js_login(secure_password, encrypted_part, server_challenge):
     test_hash = pbkdf2(first_pbkdf2_part, key=cnonce + server_challenge)
     compare test_hash with transmitted pbkdf2_hash
     """
-    # log.debug("check_secure_js_login(secure_password=%r, encrypted_part=%r, server_challenge=%r)",
+    # log.debug("check_secure_js_login(secure_password='%s', encrypted_part='%s', server_challenge='%s')",
     #     secure_password, encrypted_part, server_challenge
     # )
 
     pbkdf2_hash, second_pbkdf2_part, cnonce = split_secure_password(secure_password)
-    # log.debug("split_secure_password(): pbkdf2_hash=%r, second_pbkdf2_part=%r, cnonce=%r",
+    # log.debug("split_secure_password(): pbkdf2_hash='%s', second_pbkdf2_part='%s', cnonce='%s'",
     #     pbkdf2_hash, second_pbkdf2_part, cnonce
     # )
 

@@ -43,7 +43,7 @@ except ImportError as err:
 
 class AdditionalAssertmentsMixin(object):
     def _verbose_assertion_error(self, page_source):
-        print("\n", flush=True, file=sys.stderr)
+        print("\n", file=sys.stderr)
         print("*" * 79, file=sys.stderr)
         traceback.print_exc()
         print(" -" * 40, file=sys.stderr)
@@ -52,7 +52,7 @@ class AdditionalAssertmentsMixin(object):
             print("Response info:", file=sys.stderr)
             print("\ttype: %r" % type(page_source), file=sys.stderr)
             print("\tstatus_code: %r" % page_source.status_code, file=sys.stderr)
-            page_source = page_source.content
+            page_source = page_source.content.decode("utf-8")
             print(" -" * 40, file=sys.stderr)
 
         if not page_source.strip():
@@ -62,24 +62,24 @@ class AdditionalAssertmentsMixin(object):
             print(page_source, file=sys.stderr)
 
         print("*" * 79, file=sys.stderr)
-        print("\n", flush=True, file=sys.stderr)
+        print("\n", file=sys.stderr)
         raise
 
     def assertContainsHtml(self, response, *args):
+        self.assertIsInstance(response, HttpResponse)
         for html in args:
             try:
                 self.assertContains(response, html, html=True)
-            except AssertionError as e:
-                debug_response(response, msg="%s" % e) # from django-tools
-                raise
+            except AssertionError:
+                self._verbose_assertion_error(response)
 
     def assertNotContainsHtml(self, response, *args):
+        self.assertIsInstance(response, HttpResponse)
         for html in args:
             try:
                 self.assertNotContains(response, html, html=True)
-            except AssertionError as e:
-                debug_response(response, msg="%s" % e) # from django-tools
-                raise
+            except AssertionError:
+                self._verbose_assertion_error(response)
 
     def assertSecureLoginSuccess(self, page_source):
         self.assertNoFailedSignals()
@@ -137,6 +137,7 @@ class AdditionalAssertmentsMixin(object):
             self.assertNotIn("errorlist", page_source2)
         except AssertionError as err:
             self._verbose_assertion_error(page_source1)
+
 
 class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
     SUPER_USER_NAME = "super"
