@@ -147,6 +147,7 @@ class AdditionalAssertmentsMixin(object):
 
 
 class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
+    VERBOSE = True
     SUPER_USER_NAME = "super"
     SUPER_USER_PASS = "super secret"
 
@@ -164,9 +165,10 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
         cls.honypot_url = reverse("honypot-login:login")
 
     def _secure_js_login_failed_signal_receiver(self, sender, reason, **kwargs):
-        print("\n\t*** receive 'secure_js_login_failed' signal:", file=sys.stderr)
-        print("\t - sender: %r" % sender, file=sys.stderr)
-        print("\t - reason: %r" % reason, file=sys.stderr)
+        if self.VERBOSE:
+            print("\n\t*** receive 'secure_js_login_failed' signal:", file=sys.stderr)
+            print("\t - sender: %r" % sender, file=sys.stderr)
+            print("\t - reason: %r" % reason, file=sys.stderr)
         self.signal_reasons.append(reason)
 
     def assertFailedSignals(self, *should_reasons):
@@ -182,7 +184,8 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
         existing_reasons="|".join(self.signal_reasons)
         should_reasons="|".join(should_reasons)
         self.assertEqual(existing_reasons, should_reasons, msg=msg)
-        print("\t+++ Signals ok", file=sys.stderr)
+        if self.VERBOSE:
+            print("\t+++ Signals ok", file=sys.stderr)
 
     def assertNoFailedSignals(self):
         msg=(
