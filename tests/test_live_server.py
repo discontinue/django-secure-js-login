@@ -16,7 +16,6 @@ import unittest
 
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
 import sys
-from selenium.webdriver.common.alert import Alert
 
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.test import override_settings
@@ -30,6 +29,7 @@ try:
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions
+    from selenium.webdriver.common.alert import Alert
 except ImportError as err:
     selenium_import_error = err
 else:
