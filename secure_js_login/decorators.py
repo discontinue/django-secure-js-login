@@ -63,10 +63,14 @@ class TimingAttackPreventer(object):
 
         duration = time.time()-start_time
 
-        if getattr(response, "add_duration", False)==True:
+        if getattr(response, "add_duration", False):
+            # successful request -> collect duration value
             self.timings.append(duration)
         elif self.timings:
-            time.sleep(random.uniform(min(self.timings), max(self.timings)))
+            # failed request -> 'fill' time with collect durations
+            length = random.uniform(min(self.timings), max(self.timings)) - duration
+            if length>0:
+                time.sleep(length)
 
         # log.debug("Response: %s", response)
         return response

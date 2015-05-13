@@ -80,7 +80,7 @@ def get_salt(request):
 
     response = HttpResponse(init_pbkdf2_salt, content_type="text/plain")
 
-    if send_pseudo_salt:
+    if not send_pseudo_salt:
         response.add_duration=True # collect duration time in @TimingAttackPreventer
 
     # log.debug("\nsend init_pbkdf2_salt %r to client.", init_pbkdf2_salt)

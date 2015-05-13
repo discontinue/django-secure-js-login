@@ -17,6 +17,7 @@ import time
 
 from django.contrib.auth import SESSION_KEY
 from django.test import override_settings
+from django.utils import six
 
 from tests.test_utils.test_cases import SecureLoginClientBaseTestCase
 
@@ -24,7 +25,9 @@ from tests.test_utils.test_cases import SecureLoginClientBaseTestCase
 # MEASUREING_LOOPS = 10
 MEASUREING_LOOPS = 25
 # MEASUREING_LOOPS = 50
+# MEASUREING_LOOPS = 75
 # MEASUREING_LOOPS = 100
+
 
 
 def average(l):
@@ -94,6 +97,50 @@ class TestSecureLoginTimingAttack(BaseTestTimingAttack):
         average2 = self._measure_loop(self.measured_failed_secure_js_login)
 
         self.out("average secure_js_login diff: %f sec" % (average1 - average2))
+
+    def measured_successful_get_salt(self):
+        self._request_server_challenge()
+
+        start_time = time.time()
+        response = self.client.post(self.get_salt_url,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            data={"username": self.SUPER_USER_NAME}
+        )
+        duration = time.time() - start_time
+
+        self.assertEqual(
+            six.text_type(response.content, "ascii"),
+            self.superuser_profile.init_pbkdf2_salt
+        )
+        self._reset_secure_data()
+        return duration
+
+    def measured_failed_get_salt(self):
+        self._request_server_challenge()
+
+        start_time = time.time()
+        response = self.client.post(self.get_salt_url,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            data={"username": "NotExists"}
+        )
+        duration = time.time() - start_time
+
+        self.assertNotEqual(
+            six.text_type(response.content, "ascii"),
+            self.superuser_profile.init_pbkdf2_salt
+        )
+        self._reset_secure_data()
+        return duration
+
+    @override_settings(DEBUG=False)
+    def test_get_salt(self):
+        self.out("\nMeasuring successful get_salt view (%i loops)..." % MEASUREING_LOOPS)
+        average1 = self._measure_loop(self.measured_successful_get_salt)
+
+        self.out("\nMeasuring failed get_salt view (%i loops)..." % MEASUREING_LOOPS)
+        average2 = self._measure_loop(self.measured_failed_get_salt)
+
+        self.out("average get_salt view diff: %f sec" % (average1 - average2))
 
 
 class TestDjangoLoginTimingAttack(BaseTestTimingAttack):
