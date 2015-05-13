@@ -121,7 +121,7 @@ if app_settings.AUTO_CREATE_PASSWORD_HASH:
 
 
     def set_password(user, raw_password):
-        log.debug("set plaintext password %r for user %r", raw_password, user.username)
+        # log.debug("set plaintext password %r for user %r", raw_password, user.username)
         if not (raw_password and user):
             # e.g.: The auth.backends call UserModel().set_password(password) to
             # run the default password hasher once to reduce the timing
