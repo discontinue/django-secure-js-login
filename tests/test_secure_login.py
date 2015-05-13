@@ -119,7 +119,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         response = self.client.post(self.secure_login_url,
             follow=True, # Redirect after successfully login
             data = {
-                'username': self.username,
+                "username": self.username,
                 "password": self.secure_password,
             }
         )
@@ -145,8 +145,8 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         self.assertSecureLoginFailed(response)
         self.assertFailedSignals(
             "SecureLoginForm error:"
-            " 'password':This field is required.,"
-            " 'username':This field is required."
+            " password:This field is required.,"
+            " username:This field is required."
         )
 
     def test_successful_login(self):
@@ -164,8 +164,8 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         # debug_response(response)
         self.assertSecureLoginFailed(response)
         self.assertFailedSignals(
-            "UsernameForm error: 'username':User 'doesnt_exist' doesn't exists!",
-            "SecureLoginForm error: 'username':User 'doesnt_exist' doesn't exists!"
+            "UsernameForm error: username:User 'doesnt_exist' doesn't exists!",
+            "SecureLoginForm error: username:User 'doesnt_exist' doesn't exists!"
         )
         return response
 
@@ -212,7 +212,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         self.assertSecureLoginFailed(response)
         self.assertFailedSignals(
             "cnonce '%s' was used in the past!" % old_cnonce,
-            "SecureLoginForm error: '__all__':authenticate() check failed."
+            "SecureLoginForm error: __all__:authenticate() check failed."
         )
 
     def test_use_same_challenge(self):
@@ -261,7 +261,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         self.assertSecureLoginFailed(response)
         self.assertFailedSignals(
             "cnonce '%s' was used in the past!" % self.cnonce,
-            "SecureLoginForm error: '__all__':authenticate() check failed."
+            "SecureLoginForm error: __all__:authenticate() check failed."
         )
 
     def test_request_salt_without_username(self):
@@ -314,7 +314,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         self.assertFailedSignals(
             (
                 "SecureLoginForm error:"
-                " 'password':"
+                " password:"
                 "Ensure this value has at least %i characters (it has %i)."
             ) % (
                 CLIENT_DATA_LEN, CLIENT_DATA_LEN-1
@@ -327,7 +327,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         error_msg = "Ensure this value has at least %i characters (it has %i)." % (
             CLIENT_DATA_LEN, CLIENT_DATA_LEN-1
         )
-        self.assertFailedSignals("SecureLoginForm error: 'password':%s" % error_msg)
+        self.assertFailedSignals("SecureLoginForm error: password:%s" % error_msg)
         self.assertFormError(response, "form", field="password", errors=[error_msg])
 
     def test_pbkdf2_hash_no_hex(self):
@@ -339,7 +339,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         self.assertSecureLoginFailed(response)
         self.assertFailedSignals(
             "pbkdf2_hash regexp error",
-            "SecureLoginForm error: '__all__':authenticate() check failed."
+            "SecureLoginForm error: __all__:authenticate() check failed."
         )
         self.assertFormError(response, "form", field="__all__", errors=[
             "Please enter a correct username and password. Note that both fields may be case-sensitive."
@@ -361,7 +361,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         self.assertOnlyCommonFormError(response)
         self.assertFailedSignals(
             "No two '$' (found: 1) in secure_password: '%s' !" % self.secure_password,
-            "SecureLoginForm error: '__all__':authenticate() check failed."
+            "SecureLoginForm error: __all__:authenticate() check failed."
         )
 
     @override_settings(DEBUG=True)
@@ -371,7 +371,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         self.assertFailedSignals(
             "No two '$' (found: 1) in secure_password: '%s' !" % self.secure_password,
             (
-                "SecureLoginForm error: '__all__':No two '$' (found: 1) in secure_password: '%s' !"
+                "SecureLoginForm error: __all__:No two '$' (found: 1) in secure_password: '%s' !"
                 ",authenticate() check failed."
             ) % self.secure_password
         )

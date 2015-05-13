@@ -252,7 +252,7 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
 	        "XOR decrypted data: PBKDF2 hash test failed",
             (
                 "SecureLoginForm error:"
-                " '__all__':XOR decrypted data:"
+                " __all__:XOR decrypted data:"
                 " PBKDF2 hash test failed,authenticate() check failed."
             )
         )
@@ -277,12 +277,12 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
         self.assertFailedSignals(
             ( # The salt request:
                 "UsernameForm error:"
-                " 'username':"
+                " username:"
                 "User 'WrongUsername' doesn't exists!"
             ),
             ( # The login request:
                 "SecureLoginForm error:"
-                " 'username':"
+                " username:"
                 "User 'WrongUsername' doesn't exists!"
             )
         )

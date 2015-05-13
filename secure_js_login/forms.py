@@ -85,7 +85,7 @@ class UsernameForm(AuthenticationForm):
                     ",".join(field_error.messages)
                     for field_error in field_errors
                 ])
-                errors.append("%r:%s" % (field_name, field_errors))
+                errors.append("%s:%s" % (field_name, field_errors))
             errors=", ".join(errors)
 
             reason = "%s error: %s" % (self.__class__.__name__, errors)

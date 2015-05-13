@@ -1,18 +1,12 @@
-#!/usr/bin/env python
 # coding: utf-8
 
 """
-    django-reversion-compare unittests
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Secure JavaScript Login
+    ~~~~~~~~~~~~~~~~~~~~~~~
 
-    I used the setup from reversion_compare_test_project !
-
-    TODO:
-        * models.OneToOneField()
-        * models.IntegerField()
-
-    :copyleft: 2012 by the django-reversion-compare team, see AUTHORS for more details.
-    :license: GNU GPL v3 or above, see LICENSE for more details.
+    :copyleft: 2012-2015 by the secure-js-login team, see AUTHORS for more details.
+    :created: by JensDiemer.de
+    :license: GNU GPL v3 or above, see LICENSE for more details
 """
 
 from __future__ import unicode_literals, print_function
@@ -22,7 +16,7 @@ import sys
 import traceback
 import logging
 
-from django.contrib.auth import get_user_model, authenticate, SESSION_KEY
+from django.contrib.auth import get_user_model, SESSION_KEY
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.test import SimpleTestCase
@@ -161,14 +155,13 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
         cls.get_salt_url = reverse("secure-js-login:get_salt")
         cls.honypot_url = reverse("honypot-login:login")
 
-    def _secure_js_login_failed_signal_receiver(self, **kwargs):
-        print("\n\t*** secure_js_login_failed signal:", file=sys.stderr)
-        print("\t - sender: %r" % kwargs["sender"], file=sys.stderr)
-        print("\t - reason: %r" % kwargs["reason"], file=sys.stderr)
-        self.signals.append(kwargs)
+    def _secure_js_login_failed_signal_receiver(self, sender, reason, **kwargs):
+        print("\n\t*** receive 'secure_js_login_failed' signal:", file=sys.stderr)
+        print("\t - sender: %r" % sender, file=sys.stderr)
+        print("\t - reason: %r" % reason, file=sys.stderr)
+        self.signal_reasons.append(reason)
 
     def assertFailedSignals(self, *should_reasons):
-        existing_reasons = [signal["reason"] for signal in self.signals]
         msg = (
             "\n*** should reasons are:\n"
             "\t%s\n"
@@ -176,21 +169,21 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
             "\t%s\n"
         ) % (
             "\n\t".join(should_reasons),
-            "\n\t".join(existing_reasons)
+            "\n\t".join(self.signal_reasons)
         )
-        existing_reasons="|".join(existing_reasons)
+        existing_reasons="|".join(self.signal_reasons)
         should_reasons="|".join(should_reasons)
         self.assertEqual(existing_reasons, should_reasons, msg=msg)
         print("\t+++ Signals ok", file=sys.stderr)
 
     def assertNoFailedSignals(self):
-        existing_reasons = [signal["reason"] for signal in self.signals]
-        self.assertEqual(len(existing_reasons), 0,
-             msg="They should be no signals, but there are: \n\t%s" % "\n\t".join(existing_reasons)
-        )
+        msg=(
+            "They should be no signals, but there are: \n\t%s"
+        ) % "\n\t".join(self.signal_reasons)
+        self.assertEqual(len(self.signal_reasons), 0, msg=msg)
 
     def reset_signal_storage(self):
-        self.signals = []
+        self.signal_reasons = []
 
     def setUp(self):
         super(SecureLoginBaseTestCase, self).setUp()
