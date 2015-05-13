@@ -197,8 +197,8 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         response = self._secure_login()
         self.assertSecureLoginFailed(response)
 
-        # We should get the "right" salt value
-        self.assertEqual(self.init_pbkdf2_salt, self.superuser_profile.init_pbkdf2_salt)
+        # We should get pseudo salt for inactiv users:
+        self.assertNotEqual(self.init_pbkdf2_salt, self.superuser_profile.init_pbkdf2_salt)
 
     def test_use_same_cnonce(self):
         response = self._secure_login()

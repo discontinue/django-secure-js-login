@@ -65,6 +65,9 @@ class UsernameForm(AuthenticationForm):
         except ObjectDoesNotExist as err:
             raise forms.ValidationError("User '%s' doesn't exists!" % username)
 
+        if not self.user_cache.is_active:
+            raise forms.ValidationError("User '%s' is not active!" % username)
+
         try:
             self.user_profile = UserProfile.objects.get_user_profile(self.user_cache)
         except ObjectDoesNotExist as err:
@@ -149,10 +152,6 @@ class SecureLoginForm(UsernameForm):
                     "authenticate() check failed.",
                     code='invalid_login',
                 )
-            else:
-                # log.debug("confirm_login_allowed()")
-                self.confirm_login_allowed(self.user_cache)
-                # log.debug("confirm_login_allowed() - OK")
 
         return self.cleaned_data
 
