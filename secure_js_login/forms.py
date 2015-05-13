@@ -22,6 +22,7 @@ from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils.translation import ugettext as _
 from django.contrib.auth import authenticate
 from django.utils.text import capfirst
+from secure_js_login.exceptions import SecureJSLoginError
 from secure_js_login.signals import secure_js_login_failed
 
 from secure_js_login.utils import crypt
@@ -49,17 +50,7 @@ class UsernameForm(AuthenticationForm):
     def __init__(self, request=None, *args, **kwargs):
         super(UsernameForm, self).__init__(request, *args, **kwargs)
         self.user_profile = None
-
-    def _raise_validate_error(self, msg):
-        # log.debug("%s error: %s", self.__class__.__name__, msg)
-        if not settings.DEBUG:
-            msg = ERROR_MESSAGE
-
-        raise forms.ValidationError(
-            msg,
-            code='invalid_login',
-            params={'username': self.username_field.verbose_name},
-        )
+        self.error_message = ERROR_MESSAGE % {'username': self.username_field.verbose_name}
 
     def clean(self):
         # log.debug("%s.clean()", self.__class__.__name__)
@@ -72,12 +63,12 @@ class UsernameForm(AuthenticationForm):
         try:
             self.user_cache = get_user_model().objects.get(username=username)
         except ObjectDoesNotExist as err:
-            raise self._raise_validate_error("User %r doesn't exists!" % username)
+            raise forms.ValidationError("User %r doesn't exists!" % username)
 
         try:
             self.user_profile = UserProfile.objects.get_user_profile(self.user_cache)
         except ObjectDoesNotExist as err:
-            raise self._raise_validate_error(
+            raise forms.ValidationError(
                 "Profile for user %r doesn't exists!" % self.user_cache.username
             )
         return username
@@ -85,17 +76,26 @@ class UsernameForm(AuthenticationForm):
     def is_valid(self):
         valid=super(UsernameForm, self).is_valid()
         if not valid:
+            # Send signal with the "real" form error information
             # FIXME: How to made this simpler?!?
             form_errors = self.errors.as_data()
             errors=[]
             for field_name, field_errors in sorted(form_errors.items()):
-                field_errors = ",".join([",".join(field_error.messages) for field_error in field_errors])
+                field_errors = ",".join([
+                    ",".join(field_error.messages)
+                    for field_error in field_errors
+                ])
                 errors.append("%r:%s" % (field_name, field_errors))
             errors=", ".join(errors)
 
             reason = "%s error: %s" % (self.__class__.__name__, errors)
-            secure_js_login_failed.send(sender=SecureLoginForm, reason=reason)
+            secure_js_login_failed.send(sender=self.__class__.__name__, reason=reason)
             # log.error("POST: %r form errors: %s" % (repr(self.request.POST), reason))
+
+            if not settings.DEBUG:
+                # Remove "real" form errors with common message
+                self.errors.clear()
+                self.add_error(field="__all__", error=self.error_message)
 
         return valid
 
@@ -111,6 +111,10 @@ class SecureLoginForm(UsernameForm):
         widget=forms.PasswordInput
     )
 
+    def _secure_js_login_failed_signal_handler(self, sender, reason, **kwargs):
+        if settings.DEBUG:
+            self.add_error(field="__all__", error=reason)
+
     def clean(self):
         username = self.cleaned_data.get('username')
         secure_password = self.cleaned_data.get('password')
@@ -119,18 +123,27 @@ class SecureLoginForm(UsernameForm):
         try:
             server_challenge = self.request.server_challenge
         except AttributeError as err:
-            self._raise_validate_error("request.server_challenge not set: %s" % err)
+            forms.ValidationError("request.server_challenge not set: %s" % err)
         # log.debug("Challenge from session: %r", server_challenge)
 
         if username and secure_password:
+            if settings.DEBUG:
+                secure_js_login_failed.connect(self._secure_js_login_failed_signal_handler)
+
             self.user_cache = authenticate(
                 username=username,
                 secure_password=secure_password,
                 server_challenge=server_challenge
             )
+            if settings.DEBUG:
+                secure_js_login_failed.disconnect(self._secure_js_login_failed_signal_handler)
+
             # log.debug("Get %r back from authenticate()", self.user_cache)
             if self.user_cache is None:
-                self._raise_validate_error("authenticate() check failed.")
+                raise forms.ValidationError(
+                    "authenticate() check failed.",
+                    code='invalid_login',
+                )
             else:
                 # log.debug("confirm_login_allowed()")
                 self.confirm_login_allowed(self.user_cache)

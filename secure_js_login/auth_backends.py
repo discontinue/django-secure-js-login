@@ -18,7 +18,7 @@ from django.contrib.auth.backends import ModelBackend
 from django.core.exceptions import ObjectDoesNotExist
 from secure_js_login.models import UserProfile
 from secure_js_login.signals import secure_js_login_failed
-
+from secure_js_login.exceptions import SecureJSLoginError
 from secure_js_login.utils import crypt
 
 
@@ -53,22 +53,16 @@ class SecureLoginAuthBackend(ModelBackend):
             )
             return
 
-        # log.debug("Call crypt.check_secure_js_login with: %s", repr(kwargs))
+        # log.debug("Call crypt.check_secure_js_login with: %s", repr(locals()))
         try:
-            check = crypt.check_secure_js_login(
+            crypt.check_secure_js_login(
                 secure_password=secure_password,
                 encrypted_part=user_profile.encrypted_part,
                 server_challenge=server_challenge,
             )
-        except crypt.CryptError as err:
-            secure_js_login_failed.send(
-                sender=self.__class__,
-                reason="crypt.check_secure_js_login() error: %s" % err
-            )
-            return
-
-        if check == True:
+        except SecureJSLoginError as err:
+            secure_js_login_failed.send(sender=self.__class__, reason="%s" % err)
+        else:
             # log.debug("Check ok!")
             user.previous_login = user.last_login # Save for: secure_js_login.views.display_login_info()
             return user
-        # log.debug("Check failed!")

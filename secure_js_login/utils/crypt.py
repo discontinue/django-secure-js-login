@@ -16,14 +16,13 @@ import logging
 import re
 import binascii
 
-from django.core.exceptions import PermissionDenied
 from django.utils import six, crypto
 from django.utils.encoding import force_bytes, force_text
 from django.contrib.auth.hashers import PBKDF2SHA1PasswordHasher
 
-from secure_js_login.signals import secure_js_login_failed
 from secure_js_login.utils.cache import AppCache
 from secure_js_login import settings as app_settings
+from secure_js_login.exceptions import SecureJSLoginError
 
 
 log = logging.getLogger("secure_js_login")
@@ -40,9 +39,6 @@ PBKDF2_HALF_HEX_LENGTH = int(PBKDF2_HEX_LENGTH / 2)
 
 assert PBKDF2_HALF_HEX_LENGTH == app_settings.PBKDF2_BYTE_LENGTH
 
-
-class CryptError(Exception):
-    pass
 
 
 def hash_hexdigest(txt):
@@ -127,7 +123,7 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
 
     >>> try:
     ...     PBKDF2SHA1Hasher(iterations=1000, length=16).verify(password="not secret", encoded=hash)
-    ... except CryptError as err:print(err)
+    ... except SecureJSLoginError as err:print(err)
     wrong hash length
 
     >>> PBKDF2SHA1Hasher(iterations=1000, length=32).must_update(encoded=hash)
@@ -167,13 +163,13 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
         try:
             algorithm, iterations, salt, hash = encoded.split('$', 3)
         except ValueError as err:
-            raise CryptError("Encoded split error: %s" % err)
+            raise SecureJSLoginError("Encoded split error: %s" % err)
 
         if algorithm != self.algorithm:
-            raise CryptError("wrong algorithm")
+            raise SecureJSLoginError("wrong algorithm")
 
         if len(hash)/2 != self.length:
-            raise CryptError("wrong hash length")
+            raise SecureJSLoginError("wrong hash length")
 
         encoded_2 = self.encode(password, salt, int(iterations))
         return crypto.constant_time_compare(encoded, encoded_2)
@@ -239,17 +235,17 @@ class XorCryptor(object):
 
     >>> try:
     ...     xor.decrypt(encrypted, "AXXD")
-    ... except CryptError as err: print(err)
+    ... except SecureJSLoginError as err: print(err)
     XOR decrypted data: PBKDF2 hash test failed
 
     >>> try:
     ...     xor.decrypt('pbkdf2_sha1$10$DEBUG$bb6212418fade7c4101179b0$70XxxX70', "ABCD")
-    ... except CryptError as err: print(err)
+    ... except SecureJSLoginError as err: print(err)
     unhexlify error: Non-hexadecimal digit found with data: '70XxxX70'
 
     >>> try:
     ...     xor.decrypt(encrypted, "wrong pass")
-    ... except CryptError as err: print(err)
+    ... except SecureJSLoginError as err: print(err)
     encrypt error: b'pppp' and 'wrong pass' must have the same length!
     """
     def xor(self, txt, key):
@@ -316,10 +312,10 @@ class XorCryptor(object):
             crypted = binascii.unhexlify(crypted)
         except (binascii.Error, TypeError) as err:
             # Py2 will raise TypeError - Py3 the binascii.Error
-            raise CryptError("unhexlify error: %s with data: %s" % (err, repr(crypted)))
+            raise SecureJSLoginError("unhexlify error: %s with data: %s" % (err, repr(crypted)))
 
         if len(crypted) != len(key):
-            raise CryptError("encrypt error: %r and %r must have the same length!" % (crypted, key))
+            raise SecureJSLoginError("encrypt error: %r and %r must have the same length!" % (crypted, key))
 
         key=force_bytes(key)
         decrypted = self.xor(crypted, key)
@@ -327,11 +323,11 @@ class XorCryptor(object):
         try:
             decrypted = force_text(decrypted)
         except UnicodeDecodeError:
-            raise CryptError("Can't decode data.")
+            raise SecureJSLoginError("Can't decode data.")
 
         test = PBKDF2SHA1Hasher1().verify(decrypted, pbkdf2_hash)
         if not test:
-            raise CryptError("XOR decrypted data: PBKDF2 hash test failed")
+            raise SecureJSLoginError("XOR decrypted data: PBKDF2 hash test failed")
 
         return decrypted
 
@@ -410,10 +406,10 @@ class HashValidator(object):
 
     def validate(self, value):
         if len(value)!=self.length:
-            raise PermissionDenied("%s length error" % self.name)
+            raise SecureJSLoginError("%s length error" % self.name)
 
         if not self.regexp.match(value):
-            raise PermissionDenied("%s regexp error" % self.name)
+            raise SecureJSLoginError("%s regexp error" % self.name)
 
 PBKDF2_HASH_Validator = HashValidator(name="pbkdf2_hash", length=PBKDF2_HEX_LENGTH)
 SECOND_PBKDF2_PART_Validator = HashValidator(name="second_pbkdf2_part", length=PBKDF2_HALF_HEX_LENGTH)
@@ -424,7 +420,7 @@ CLIENT_NONCE_HEX_Validator = HashValidator(name="cnonce", length=app_settings.CL
 
 def split_secure_password(secure_password):
     if secure_password.count("$") != 2:
-        raise PermissionDenied(
+        raise SecureJSLoginError(
             "No two '$' (found: %i) in secure_password: %r !" % (
                 secure_password.count("$"), secure_password
             )
@@ -435,7 +431,7 @@ def split_secure_password(secure_password):
     CLIENT_NONCE_HEX_Validator.validate(cnonce)
 
     if cnonce_cache.exists_or_add(cnonce):
-        raise PermissionDenied("cnonce %r was used in the past!" % cnonce)
+        raise SecureJSLoginError("cnonce %r was used in the past!" % cnonce)
 
     PBKDF2_HASH_Validator.validate(pbkdf2_hash)
     SECOND_PBKDF2_PART_Validator.validate(second_pbkdf2_part)
@@ -453,13 +449,7 @@ def check_secure_js_login(secure_password, encrypted_part, server_challenge):
     #     secure_password, encrypted_part, server_challenge
     # )
 
-    try:
-        pbkdf2_hash, second_pbkdf2_part, cnonce = split_secure_password(secure_password)
-    except PermissionDenied as err:
-        secure_js_login_failed.send(sender=check_secure_js_login,
-                                    reason="%s" % err)
-        raise # Don't check other authentication backends that follow
-
+    pbkdf2_hash, second_pbkdf2_part, cnonce = split_secure_password(secure_password)
     # log.debug("split_secure_password(): pbkdf2_hash=%r, second_pbkdf2_part=%r, cnonce=%r",
     #     pbkdf2_hash, second_pbkdf2_part, cnonce
     # )
@@ -473,11 +463,9 @@ def check_secure_js_login(secure_password, encrypted_part, server_challenge):
         length=app_settings.PBKDF2_BYTE_LENGTH
     )
     # log.debug("check_secure_js_login() locals():\n%s", pprint.pformat(locals()))
-    check = crypto.constant_time_compare(test_hash, pbkdf2_hash)
-    if check!=True:
-        secure_js_login_failed.send(sender=check_secure_js_login,
-                                    reason="test_hash != pbkdf2_hash")
-        raise PermissionDenied # Don't check other authentication backends that follow
+    if test_hash != pbkdf2_hash:
+        raise SecureJSLoginError("test_hash != pbkdf2_hash")
+    # log.debug("OK: test_hash == pbkdf2_hash")
     return True
 
 

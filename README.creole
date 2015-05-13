@@ -92,6 +92,9 @@ run example project server:
 (secure-js-login-env)~/secure-js-login-env $ cd src/django-secure-js-login/
 (secure-js-login-env)~/secure-js-login-env/src/django-secure-js-login $ ./run_example_server.sh
 }}}
+**Note:**
+The [[https://github.com/jedie/django-secure-js-login/tree/master/example_project|example_project]] is only for local tests!
+It's insecure configured and used some hacks!
 
 run inittests:
 {{{
@@ -102,6 +105,22 @@ to run the Live-Server-Tests, install [[https://pypi.python.org/pypi/selenium|se
 {{{
 (secure-js-login-env)~/secure-js-login-env/src/django-secure-js-login $ pip install selenium
 (secure-js-login-env)~/secure-js-login-env/src/django-secure-js-login $ ./runtests.py
+}}}
+
+
+== signals
+
+On every failed Secure-JS-Login a signal will be send.
+To use this signal, e.g.:
+{{{
+import sys
+from secure_js_login.signals import secure_js_login_failed
+
+def log_failed_login_handler(sender, reason, **kwargs):
+    """ Just print the reason to stderr """
+    print("Secure-JS-Login failed: %s" % reason, file=sys.stderr)
+
+secure_js_login_failed.connect(log_failed_login_handler)
 }}}
 
 
@@ -118,6 +137,8 @@ to run the Live-Server-Tests, install [[https://pypi.python.org/pypi/selenium|se
 * v0.3.0 - **dev**
 ** check cnonce against replay attacks
 ** refactor validation process
+** fire signal on failed login with a 'reason' message
+** Display detailed form errors, if settings.DEBUG is on else: only a common message
 * v0.2.0 - 10.05.2015:
 ** increase default PBKDF2 iteration after test on a Raspberry Pi 1
 ** more unitests

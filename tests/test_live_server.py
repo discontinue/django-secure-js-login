@@ -19,6 +19,7 @@ import sys
 from selenium.webdriver.common.alert import Alert
 
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
+from django.test import override_settings
 from django.utils import six
 
 try:
@@ -122,7 +123,7 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
         self.assertInPageSource('<a href="/login/">') # honypot login
         self.assertInPageSource('<a href="/admin/">') # Django Admin login
         self.assertInPageSource('<a href="/admin/">') # Django Admin login
-        self.assertNotInPageSource('error')
+        self.assertNotInPageSource("Traceback")
 
     def test_django_plaintext_login_success(self):
         self.driver.get('%s%s' % (self.live_server_url, "/admin/"))
@@ -238,7 +239,9 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
         # Check new loaded page content:
         self.assertSecureLoginSuccess(self.driver.page_source)
 
+    @override_settings(DEBUG=True)
     def test_secure_login_wrong_password(self):
+        """ Detail error message while DEBUG=True """
         self._secure_login(
             username=self.SUPER_USER_NAME,
             password="Wrong Password"
@@ -246,34 +249,47 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
         # Check new loaded page content:
         self.assertSecureLoginFailed(self.driver.page_source)
         self.assertFailedSignals(
-            "crypt.check_secure_js_login() error: XOR decrypted data: PBKDF2 hash test failed",
+	        "XOR decrypted data: PBKDF2 hash test failed",
             (
                 "SecureLoginForm error:"
-                " '__all__':Please enter a correct username and password."
-                " Note that both fields may be case-sensitive."
+                " '__all__':XOR decrypted data:"
+                " PBKDF2 hash test failed,authenticate() check failed."
             )
         )
+        try:
+            self.assertIn(
+                "XOR decrypted data: PBKDF2 hash test failed",
+                self.driver.page_source
+            )
+        except AssertionError as err:
+            self._verbose_assertion_error(self.driver.page_source)
 
+    @override_settings(DEBUG=False)
     def test_secure_login_wrong_username(self):
+        """ common error messages while DEBUG=False """
         self._secure_login(
             username="WrongUsername",
             password="Wrong Password"
         )
         # Check new loaded page content:
         self.assertSecureLoginFailed(self.driver.page_source)
-        self.maxDiff=None
+        self.assertOnlyCommonFormError(self.driver.page_source)
         self.assertFailedSignals(
             ( # The salt request:
                 "UsernameForm error:"
-                " 'username':Please enter a correct username and password."
-                " Note that both fields may be case-sensitive."
+                " 'username':"
+                "User 'WrongUsername' doesn't exists!"
             ),
             ( # The login request:
                 "SecureLoginForm error:"
-                " '__all__':Please enter a correct username and password."
-                " Note that both fields may be case-sensitive."
+                " 'username':"
+                "User 'WrongUsername' doesn't exists!"
             )
         )
+        try:
+            self.assertNotIn("'WrongUsername' doesn't exists", self.driver.page_source)
+        except AssertionError as err:
+            self._verbose_assertion_error(self.driver.page_source)
 
     def test_secure_login_wrong_and_then_right(self):
         self.test_secure_login_wrong_password()

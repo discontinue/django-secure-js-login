@@ -37,6 +37,21 @@ TEMPLATE_DEBUG = DEBUG
 
 ALLOWED_HOSTS = ["*"]
 
+# https://djangosnippets.org/snippets/1380/
+from fnmatch import fnmatch
+class glob_list(list):
+    def __contains__(self, ip):
+        for entry in self:
+            if fnmatch(ip, entry):
+                return True
+        return False
+
+INTERNAL_IPS = glob_list([
+    '127.0.0.1',
+    '::1',
+    '192.168.*.*',
+    '10.0.*.*',
+])
 
 # Application definition
 
@@ -65,6 +80,21 @@ MIDDLEWARE_CLASSES = (
 ROOT_URLCONF = 'example_project.urls'
 
 WSGI_APPLICATION = 'example_project.wsgi.application'
+
+
+# django-debug-toolbar - https://github.com/django-debug-toolbar/django-debug-toolbar
+# try:
+#     import debug_toolbar
+# except ImportError:
+#     print("No django-debug-toolbar installed, ok.")
+# else:
+#     print("Activate django-debug-toolbar")
+#     del(debug_toolbar)
+#
+#     INSTALLED_APPS += ('debug_toolbar',)
+#     MIDDLEWARE_CLASSES = (
+#         'debug_toolbar.middleware.DebugToolbarMiddleware',
+#     )  + MIDDLEWARE_CLASSES
 
 
 

@@ -17,6 +17,7 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django.http import HttpResponseBadRequest
+from django.test import override_settings
 from django.utils import six
 from django.utils.crypto import get_random_string
 import sys
@@ -143,20 +144,17 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         response = self.client.post(self.secure_login_url, {}, follow=True)
         self.assertSecureLoginFailed(response)
         self.assertFailedSignals(
-            (
-                "SecureLoginForm error:"
-                " 'password':This field is required.,"
-                " 'username':This field is required."
-            )
+            "SecureLoginForm error:"
+            " 'password':This field is required.,"
+            " 'username':This field is required."
         )
 
-
-    def test_login(self):
+    def test_successful_login(self):
         response = self._secure_login()
         # debug_response(response)
         self.assertSecureLoginSuccess(response)
 
-    def test_wrong_username(self):
+    def _test_wrong_username(self):
         """
         Request with a wrong username
         use a valid secure-pass, so that the password validation will not raised an error.
@@ -165,6 +163,26 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         response = self._secure_login()
         # debug_response(response)
         self.assertSecureLoginFailed(response)
+        self.assertFailedSignals(
+            "UsernameForm error: 'username':User 'doesnt_exist' doesn't exists!",
+            "SecureLoginForm error: 'username':User 'doesnt_exist' doesn't exists!"
+        )
+        return response
+
+    @override_settings(DEBUG=False)
+    def test_wrong_username_no_debug(self):
+        """ only common error while DEBUG=False """
+        response = self._test_wrong_username()
+        self.assertOnlyCommonFormError(response)
+
+    @override_settings(DEBUG=True)
+    def test_wrong_username_with_debug(self):
+        """ detail form error while DEBUG=True """
+        response = self._test_wrong_username()
+        # debug_response(response)
+        self.assertFormError(response, "form", field="username", errors=[
+            "User 'doesnt_exist' doesn't exists!"
+        ])
 
     def test_not_active_user(self):
         self.superuser.is_active = False
@@ -194,11 +212,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         self.assertSecureLoginFailed(response)
         self.assertFailedSignals(
             "cnonce '%s' was used in the past!" % old_cnonce,
-            (
-                "SecureLoginForm error:"
-                " '__all__':Please enter a correct username and password."
-                " Note that both fields may be case-sensitive."
-            )
+            "SecureLoginForm error: '__all__':authenticate() check failed."
         )
 
     def test_use_same_challenge(self):
@@ -247,11 +261,7 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         self.assertSecureLoginFailed(response)
         self.assertFailedSignals(
             "cnonce '%s' was used in the past!" % self.cnonce,
-            (
-                "SecureLoginForm error:"
-                " '__all__':Please enter a correct username and password."
-                " Note that both fields may be case-sensitive."
-            )
+            "SecureLoginForm error: '__all__':authenticate() check failed."
         )
 
     def test_request_salt_without_username(self):
@@ -287,18 +297,38 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         pseudo_salt2 = self._request_init_pbkdf2_salt()
         self.assertEqual(pseudo_salt, pseudo_salt2)
 
-    def test_wrong_password_length(self):
+    def _test_wrong_password_length(self):
         self._calc_secure_password()
         self.secure_password = secure_pass_manipulator(self.secure_password, pbkdf2_hash_mid="")
 
         response = self._secure_login()
         # debug_response(response)
         self.assertSecureLoginFailed(response)
-        self.assertFormError(response, "form", field="password",
-            errors="Ensure this value has at least %i characters (it has %i)." % (
+        return response
+
+    @override_settings(DEBUG=False)
+    def test_wrong_password_length_no_debug(self):
+        response = self._test_wrong_password_length()
+        # debug_response(response)
+        self.assertOnlyCommonFormError(response)
+        self.assertFailedSignals(
+            (
+                "SecureLoginForm error:"
+                " 'password':"
+                "Ensure this value has at least %i characters (it has %i)."
+            ) % (
                 CLIENT_DATA_LEN, CLIENT_DATA_LEN-1
             )
         )
+
+    @override_settings(DEBUG=True)
+    def test_wrong_password_length_with_debug(self):
+        response = self._test_wrong_password_length()
+        error_msg = "Ensure this value has at least %i characters (it has %i)." % (
+            CLIENT_DATA_LEN, CLIENT_DATA_LEN-1
+        )
+        self.assertFailedSignals("SecureLoginForm error: 'password':%s" % error_msg)
+        self.assertFormError(response, "form", field="password", errors=[error_msg])
 
     def test_pbkdf2_hash_no_hex(self):
         self._calc_secure_password()
@@ -309,27 +339,43 @@ class TestSecureLogin(SecureLoginBaseTestCase):
         self.assertSecureLoginFailed(response)
         self.assertFailedSignals(
             "pbkdf2_hash regexp error",
-            (
-                "SecureLoginForm error:"
-                " '__all__':Please enter a correct username and password."
-                " Note that both fields may be case-sensitive."
-            )
+            "SecureLoginForm error: '__all__':authenticate() check failed."
         )
+        self.assertFormError(response, "form", field="__all__", errors=[
+            "Please enter a correct username and password. Note that both fields may be case-sensitive."
+        ])
 
-    def test_wrong_secure_password(self):
+    def _test_wrong_secure_password(self):
         self._calc_secure_password()
         self.secure_password = self.secure_password.replace("$", "0", 1)
 
         response = self._secure_login()
         # debug_response(response)
         self.assertSecureLoginFailed(response)
+        return response
+
+    @override_settings(DEBUG=False)
+    def test_wrong_secure_password_no_debug(self):
+        """ without DEBUG: only common error message """
+        response = self._test_wrong_secure_password()
+        self.assertOnlyCommonFormError(response)
+        self.assertFailedSignals(
+            "No two '$' (found: 1) in secure_password: '%s' !" % self.secure_password,
+            "SecureLoginForm error: '__all__':authenticate() check failed."
+        )
+
+    @override_settings(DEBUG=True)
+    def test_wrong_secure_password_with_debug(self):
+        """ If DEBUG is on: Display more information in form errors """
+        response = self._test_wrong_secure_password()
         self.assertFailedSignals(
             "No two '$' (found: 1) in secure_password: '%s' !" % self.secure_password,
             (
-                "SecureLoginForm error:"
-                " '__all__':Please enter a correct username and password."
-                " Note that both fields may be case-sensitive."
-            )
+                "SecureLoginForm error: '__all__':No two '$' (found: 1) in secure_password: '%s' !"
+                ",authenticate() check failed."
+            ) % self.secure_password
         )
-
-
+        self.assertFormError(response, "form", field="__all__", errors=[
+            "No two '$' (found: 1) in secure_password: '%s' !" % self.secure_password,
+            'authenticate() check failed.'
+        ])

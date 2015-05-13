@@ -100,7 +100,7 @@ class AdditionalAssertmentsMixin(object):
             self.assertIn("Last login was:", page_source)
             self.assertIn(self.SUPER_USER_NAME, page_source)
             self.assertIn("Log out", page_source)
-            self.assertNotIn("error", page_source)
+            self.assertNotIn("Traceback", page_source)
         except AssertionError as err:
             self._verbose_assertion_error(page_source)
 
@@ -123,10 +123,36 @@ class AdditionalAssertmentsMixin(object):
         except AssertionError as err:
             self._verbose_assertion_error(page_source1)
 
+    def assertOnlyCommonFormError(self, page_source1):
+        common_error_text = (
+            "Please enter a correct username and password."
+            " Note that both fields may be case-sensitive."
+        )
+        try:
+            if isinstance(page_source1, HttpResponse):
+                self.assertFormError(page_source1, "form",
+                    field="__all__",
+                    errors=[common_error_text]
+                )
+                page_source2 = page_source1.content.decode("utf-8")
+            else:
+                page_source2=page_source1
+                self.assertIn(common_error_text, page_source2)
+
+            # No field errors:
+            self.assertNotIn("errorlist", page_source2)
+        except AssertionError as err:
+            self._verbose_assertion_error(page_source1)
 
 class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
     SUPER_USER_NAME = "super"
     SUPER_USER_PASS = "super secret"
+
+    DEFAULT_SIGNAL_FORM_ERROR = (
+        "SecureLoginForm error:"
+        " '__all__':Please enter a correct username and password."
+        " Note that both fields may be case-sensitive."
+    )
 
     @classmethod
     def setUpClass(cls):
@@ -141,10 +167,20 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
         print("\t - reason: %r" % kwargs["reason"], file=sys.stderr)
         self.signals.append(kwargs)
 
-    def assertFailedSignals(self, *messages):
-        existing_reasons = ", ".join([signal["reason"] for signal in self.signals])
-        should_reasons = ", ".join(messages)
-        self.assertEqual(existing_reasons, should_reasons)
+    def assertFailedSignals(self, *should_reasons):
+        existing_reasons = [signal["reason"] for signal in self.signals]
+        msg = (
+            "\n*** should reasons are:\n"
+            "\t%s\n"
+            "*** existing reasons:\n"
+            "\t%s\n"
+        ) % (
+            "\n\t".join(should_reasons),
+            "\n\t".join(existing_reasons)
+        )
+        existing_reasons="|".join(existing_reasons)
+        should_reasons="|".join(should_reasons)
+        self.assertEqual(existing_reasons, should_reasons, msg=msg)
         print("\t+++ Signals ok", file=sys.stderr)
 
     def assertNoFailedSignals(self):
