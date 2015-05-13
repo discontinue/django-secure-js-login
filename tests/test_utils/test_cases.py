@@ -1,18 +1,12 @@
-#!/usr/bin/env python
 # coding: utf-8
 
 """
-    django-reversion-compare unittests
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Secure JavaScript Login
+    ~~~~~~~~~~~~~~~~~~~~~~~
 
-    I used the setup from reversion_compare_test_project !
-
-    TODO:
-        * models.OneToOneField()
-        * models.IntegerField()
-
-    :copyleft: 2012 by the django-reversion-compare team, see AUTHORS for more details.
-    :license: GNU GPL v3 or above, see LICENSE for more details.
+    :copyleft: 2012-2015 by the secure-js-login team, see AUTHORS for more details.
+    :created: by JensDiemer.de
+    :license: GNU GPL v3 or above, see LICENSE for more details
 """
 
 from __future__ import unicode_literals, print_function
@@ -22,12 +16,13 @@ import sys
 import traceback
 import logging
 
-from django.contrib.auth import get_user_model, authenticate, SESSION_KEY
+from django.contrib.auth import get_user_model, SESSION_KEY
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.test import SimpleTestCase
 
 from secure_js_login.models import UserProfile
+from secure_js_login.signals import secure_js_login_failed
 
 log = logging.getLogger("secure_js_login")
 
@@ -48,7 +43,7 @@ except ImportError as err:
 
 class AdditionalAssertmentsMixin(object):
     def _verbose_assertion_error(self, page_source):
-        print("\n", flush=True, file=sys.stderr)
+        print("\n", file=sys.stderr)
         print("*" * 79, file=sys.stderr)
         traceback.print_exc()
         print(" -" * 40, file=sys.stderr)
@@ -57,7 +52,7 @@ class AdditionalAssertmentsMixin(object):
             print("Response info:", file=sys.stderr)
             print("\ttype: %r" % type(page_source), file=sys.stderr)
             print("\tstatus_code: %r" % page_source.status_code, file=sys.stderr)
-            page_source = page_source.content
+            page_source = page_source.content.decode("utf-8")
             print(" -" * 40, file=sys.stderr)
 
         if not page_source.strip():
@@ -67,26 +62,27 @@ class AdditionalAssertmentsMixin(object):
             print(page_source, file=sys.stderr)
 
         print("*" * 79, file=sys.stderr)
-        print("\n", flush=True, file=sys.stderr)
+        print("\n", file=sys.stderr)
         raise
 
     def assertContainsHtml(self, response, *args):
+        self.assertIsInstance(response, HttpResponse)
         for html in args:
             try:
                 self.assertContains(response, html, html=True)
-            except AssertionError as e:
-                debug_response(response, msg="%s" % e) # from django-tools
-                raise
+            except AssertionError:
+                self._verbose_assertion_error(response)
 
     def assertNotContainsHtml(self, response, *args):
+        self.assertIsInstance(response, HttpResponse)
         for html in args:
             try:
                 self.assertNotContains(response, html, html=True)
-            except AssertionError as e:
-                debug_response(response, msg="%s" % e) # from django-tools
-                raise
+            except AssertionError:
+                self._verbose_assertion_error(response)
 
     def assertSecureLoginSuccess(self, page_source):
+        self.assertNoFailedSignals()
         if isinstance(page_source, HttpResponse):
             page_source = page_source.content.decode("utf-8")
             try:
@@ -98,7 +94,7 @@ class AdditionalAssertmentsMixin(object):
             self.assertIn("Last login was:", page_source)
             self.assertIn(self.SUPER_USER_NAME, page_source)
             self.assertIn("Log out", page_source)
-            self.assertNotIn("error", page_source)
+            self.assertNotIn("Traceback", page_source)
         except AssertionError as err:
             self._verbose_assertion_error(page_source)
 
@@ -121,10 +117,37 @@ class AdditionalAssertmentsMixin(object):
         except AssertionError as err:
             self._verbose_assertion_error(page_source1)
 
+    def assertOnlyCommonFormError(self, page_source1):
+        common_error_text = (
+            "Please enter a correct username and password."
+            " Note that both fields may be case-sensitive."
+        )
+        try:
+            if isinstance(page_source1, HttpResponse):
+                self.assertFormError(page_source1, "form",
+                    field="__all__",
+                    errors=[common_error_text]
+                )
+                page_source2 = page_source1.content.decode("utf-8")
+            else:
+                page_source2=page_source1
+                self.assertIn(common_error_text, page_source2)
+
+            # No field errors:
+            self.assertNotIn("errorlist", page_source2)
+        except AssertionError as err:
+            self._verbose_assertion_error(page_source1)
+
 
 class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
     SUPER_USER_NAME = "super"
     SUPER_USER_PASS = "super secret"
+
+    DEFAULT_SIGNAL_FORM_ERROR = (
+        "SecureLoginForm error:"
+        " '__all__':Please enter a correct username and password."
+        " Note that both fields may be case-sensitive."
+    )
 
     @classmethod
     def setUpClass(cls):
@@ -133,8 +156,41 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
         cls.get_salt_url = reverse("secure-js-login:get_salt")
         cls.honypot_url = reverse("honypot-login:login")
 
+    def _secure_js_login_failed_signal_receiver(self, sender, reason, **kwargs):
+        print("\n\t*** receive 'secure_js_login_failed' signal:", file=sys.stderr)
+        print("\t - sender: %r" % sender, file=sys.stderr)
+        print("\t - reason: %r" % reason, file=sys.stderr)
+        self.signal_reasons.append(reason)
+
+    def assertFailedSignals(self, *should_reasons):
+        msg = (
+            "\n*** should reasons are:\n"
+            "\t%s\n"
+            "*** existing reasons:\n"
+            "\t%s\n"
+        ) % (
+            "\n\t".join(should_reasons),
+            "\n\t".join(self.signal_reasons)
+        )
+        existing_reasons="|".join(self.signal_reasons)
+        should_reasons="|".join(should_reasons)
+        self.assertEqual(existing_reasons, should_reasons, msg=msg)
+        print("\t+++ Signals ok", file=sys.stderr)
+
+    def assertNoFailedSignals(self):
+        msg=(
+            "They should be no signals, but there are: \n\t%s"
+        ) % "\n\t".join(self.signal_reasons)
+        self.assertEqual(len(self.signal_reasons), 0, msg=msg)
+
+    def reset_signal_storage(self):
+        self.signal_reasons = []
+
     def setUp(self):
         super(SecureLoginBaseTestCase, self).setUp()
+        self.reset_signal_storage()
+        secure_js_login_failed.connect(self._secure_js_login_failed_signal_receiver)
+
         self.superuser, created = get_user_model().objects.get_or_create(
             username=self.SUPER_USER_NAME
         )
@@ -152,14 +208,7 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
         #     self.superuser, self.superuser_profile.init_pbkdf2_salt, self.superuser_profile.encrypted_part
         # )
 
-    def test_existing_superuser(self):
-        """
-        Tests that assume that:
-        * The created test user exists
-        * The normal django password is ok
-        * the default django authenticate backend worked
-        """
-        self.assertTrue(self.superuser.check_password(self.SUPER_USER_PASS))
-        user = authenticate(username=self.SUPER_USER_NAME, password=self.SUPER_USER_PASS)
-        self.assertIsInstance(user, get_user_model())
+    def tearDown(self):
+        super(SecureLoginBaseTestCase, self).tearDown()
+        secure_js_login_failed.disconnect(self._secure_js_login_failed_signal_receiver)
 

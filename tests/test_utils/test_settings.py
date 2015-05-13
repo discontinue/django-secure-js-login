@@ -1,6 +1,8 @@
 
 from example_project.example_project.settings import *
 
+DEBUG=False
+
 ROOT_URLCONF = 'example_project.example_project.urls'
 
 # For faster unittests:

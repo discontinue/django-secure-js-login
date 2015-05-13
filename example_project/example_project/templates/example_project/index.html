@@ -7,9 +7,29 @@
     <h1>Example project test page.</h1>
     <h2>Try out:</h2>
     <ul>
-        <li><a href="{% url 'secure-js-login:login' %}">{% url 'secure-js-login:login' %} - secure JS login</a></li>
+        <li>
+            <a href="{% url 'secure-js-login:login' %}">{% url 'secure-js-login:login' %} - secure JS login</a>
+            <p>
+            {% if debug %}
+                settings.DEBUG is True: You will see <strong>detail error messages</strong> on failed login!
+            {% else %}
+                settings.DEBUG is False: You will only see a <strong>common error message</strong> on failed login!
+            {% endif %}
+            </p>
+        </li>
         <li><a href="{% url 'honypot-login:login' %}">{% url 'honypot-login:login' %} - honypot login</a></li>
         <li><a href="{% url 'admin:index' %}">{% url 'admin:index' %} - Django Admin</a></li>
+    </ul>
+    <h3>Hacks:</h3>
+    <p>
+        To see the different error messages, heres a ugly hacked view to turn settings.DEBUG on/off:
+    </p>
+    <ul>
+        {% if debug %}
+            <li><a href="{% url 'debug_off' %}">{% url 'debug_off' %} - Disable DEBUG</a></li>
+        {% else %}
+            <li><a href="{% url 'debug_on' %}">{% url 'debug_on' %} - Enable DEBUG</a></li>
+        {% endif %}
     </ul>
     <hr />
     <h2>project links</h2>

@@ -13,10 +13,10 @@ from __future__ import unicode_literals
 
 import unittest
 
+from secure_js_login.exceptions import SecureJSLoginError
 from secure_js_login.utils import crypt
-from secure_js_login.utils.crypt import CryptError
 from tests.test_utils.manipulators import xor_crypt_manipulator
-
+from secure_js_login import settings as app_settings
 
 class TestCryptManipulator(unittest.TestCase):
     def test1(self):
@@ -53,9 +53,9 @@ class TestCrypt(unittest.TestCase):
         crypt.seed_generator.DEBUG=True # Generate always the same seed for tests
         self.test_encrypted = crypt.xor_crypt.encrypt(self.test_string, key=self.test_key)
         crypt.seed_generator.DEBUG=False # Generate always the same seed for tests
-        # self.assertEqual(self.test_encrypted,
-        #     "pbkdf2_sha1$5$DEBUG$3104bd93d8$040e1d"
-        # )
+        self.assertEqual(self.test_encrypted,
+            "pbkdf2_sha1$5$DEBUG$3104bd93d82585a12f854c72$040e1d"
+        )
 
     def test_pbkdf2(self):
         self.assertEqual(
@@ -82,17 +82,17 @@ class TestCrypt(unittest.TestCase):
 
     def test_wrong_key_size(self):
         # too long
-        with self.assertRaises(CryptError) as err:
+        with self.assertRaises(SecureJSLoginError) as err:
             crypt.xor_crypt.decrypt(self.test_encrypted, key="barr")
         self.assertIn("must have the same length!", err.exception.args[0])
 
         # to short
-        with self.assertRaises(CryptError) as err:
+        with self.assertRaises(SecureJSLoginError) as err:
             crypt.xor_crypt.decrypt(self.test_encrypted, key="ba")
         self.assertIn("must have the same length!", err.exception.args[0])
 
     def test_wrong_key(self):
-        with self.assertRaises(CryptError) as err:
+        with self.assertRaises(SecureJSLoginError) as err:
             crypt.xor_crypt.decrypt(self.test_encrypted, key="bXr")
         self.assertEqual("XOR decrypted data: PBKDF2 hash test failed", err.exception.args[0])
 
@@ -101,7 +101,7 @@ class TestCrypt(unittest.TestCase):
     def test_wrong_algorithm(self):
         data = self.test_encrypted
         data = xor_crypt_manipulator(data, algorithm_start="X")
-        with self.assertRaises(CryptError) as err:
+        with self.assertRaises(SecureJSLoginError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
         self.assertEqual("wrong algorithm", err.exception.args[0])
 
@@ -110,7 +110,7 @@ class TestCrypt(unittest.TestCase):
         # print(data)
         data = xor_crypt_manipulator(data, salt_mid="X")
         # print(data)
-        with self.assertRaises(CryptError) as err:
+        with self.assertRaises(SecureJSLoginError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
         self.assertEqual("XOR decrypted data: PBKDF2 hash test failed", err.exception.args[0])
 
@@ -119,7 +119,7 @@ class TestCrypt(unittest.TestCase):
         # print(data)
         data = xor_crypt_manipulator(data, hash_mid="X")
         # print(data)
-        with self.assertRaises(CryptError) as err:
+        with self.assertRaises(SecureJSLoginError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
         self.assertEqual("XOR decrypted data: PBKDF2 hash test failed", err.exception.args[0])
 
@@ -128,7 +128,7 @@ class TestCrypt(unittest.TestCase):
         # print(data)
         data = xor_crypt_manipulator(data, data_mid="ff")
         # print(data)
-        with self.assertRaises(CryptError) as err:
+        with self.assertRaises(SecureJSLoginError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
         self.assertEqual(
             "unhexlify error: Odd-length string with data",
@@ -140,7 +140,7 @@ class TestCrypt(unittest.TestCase):
         # print(data)
         data = xor_crypt_manipulator(data, data_end="X")
         # print(data)
-        with self.assertRaises(CryptError) as err:
+        with self.assertRaises(SecureJSLoginError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
         self.assertEqual(
             "unhexlify error: Non-hexadecimal digit found with data",
@@ -153,6 +153,6 @@ class TestCrypt(unittest.TestCase):
         # print(data)
         data = xor_crypt_manipulator(data, data_end="f")
         # print(data)
-        with self.assertRaises(CryptError) as err:
+        with self.assertRaises(SecureJSLoginError) as err:
             crypt.xor_crypt.decrypt(data, key="bar")
         self.assertEqual("XOR decrypted data: PBKDF2 hash test failed", err.exception.args[0])
