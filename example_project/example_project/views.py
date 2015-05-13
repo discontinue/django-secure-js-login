@@ -18,8 +18,8 @@ from django.conf import settings
 
 def index(request):
     return render(request, "example_project/index.html", {
-        # To see the "user-tools" bar with logout link
-        "has_permission":request.user.is_active
+        # New in django 1.8: To see the "user-tools" bar with logout link
+        "has_permission": request.user.is_active
     })
 
 def debug_on(request):
