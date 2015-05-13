@@ -139,7 +139,8 @@ class SecureLoginForm(UsernameForm):
                 secure_js_login_failed.connect(self._secure_js_login_failed_signal_handler)
 
             self.user_cache = authenticate(
-                username=username,
+                user=self.user_cache,
+                user_profile=self.user_profile,
                 secure_password=secure_password,
                 server_challenge=server_challenge
             )

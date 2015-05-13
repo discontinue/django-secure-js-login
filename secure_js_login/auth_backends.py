@@ -30,28 +30,9 @@ class SecureLoginAuthBackend(ModelBackend):
     Used for PyLucid JS-SHA-Login.
     Check challenge and limit access to sites.
     """
-    def authenticate(self, username=None, secure_password=None, server_challenge=None):
+    def authenticate(self, user=None, user_profile=None, secure_password=None, server_challenge=None):
         # log.debug("authenticate with SecureLoginAuthBackend")
         # log.debug("Check with: %r" % repr(kwargs))
-
-        UserModel = get_user_model()
-        try:
-            user = UserModel._default_manager.get_by_natural_key(username)
-        except UserModel.DoesNotExist as err:
-            secure_js_login_failed.send(
-                sender=self.__class__,
-                reason="User %r not exists: %s" % (username, err)
-            )
-            return
-
-        try:
-            user_profile = UserProfile.objects.get_user_profile(user)
-        except UserProfile.DoesNotExist as err:
-            secure_js_login_failed.send(
-                sender=self.__class__,
-                reason="Profile for user %r doesn't exists: %s" % (user.username, err)
-            )
-            return
 
         # log.debug("Call crypt.check_secure_js_login with: %s", repr(locals()))
         try:
@@ -62,6 +43,7 @@ class SecureLoginAuthBackend(ModelBackend):
             )
         except SecureJSLoginError as err:
             secure_js_login_failed.send(sender=self.__class__, reason="%s" % err)
+            raise # don't check other auth backends that follow.
         else:
             # log.debug("Check ok!")
             user.previous_login = user.last_login # Save for: secure_js_login.views.display_login_info()

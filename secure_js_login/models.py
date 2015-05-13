@@ -121,7 +121,12 @@ if app_settings.AUTO_CREATE_PASSWORD_HASH:
 
 
     def set_password(user, raw_password):
-        # log.debug("set plaintext password for user %r", user.username)
+        log.debug("set plaintext password %r for user %r", raw_password, user.username)
+        if not (raw_password and user):
+            # e.g.: The auth.backends call UserModel().set_password(password) to
+            # run the default password hasher once to reduce the timing
+            # difference between an existing and a non-existing user.
+            return
 
         if user.id == None:
             # It is a new user. We must save the django user accound first to get a
