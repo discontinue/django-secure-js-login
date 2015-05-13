@@ -10,28 +10,23 @@
 """
 
 from __future__ import unicode_literals
-import functools
 
 import logging
-import pprint
-import traceback
-import sys
 
 from django.conf import settings
-from django.contrib import auth, messages
+from django.contrib import messages
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
 from django.template.loader import render_to_string
 from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_protect, csrf_exempt, ensure_csrf_cookie
-from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth.views import login
-from django.contrib.auth.signals import user_logged_in, user_login_failed
+from django.contrib.auth.signals import user_logged_in
 
 # auth own stuff
-from secure_js_login.models import CNONCE_CACHE, UserProfile
+from secure_js_login.decorators import TimingAttackPreventer
 from secure_js_login.signals import secure_js_login_failed
 from secure_js_login.utils import crypt
-from secure_js_login.forms import WrongUserError, UsernameForm, SecureLoginForm
+from secure_js_login.forms import UsernameForm, SecureLoginForm
 from secure_js_login import settings as app_settings
 
 
@@ -40,27 +35,8 @@ log = logging.getLogger("secure_js_login")
 SERVER_CHALLENGE_KEY = "server_challenge"
 
 
-def log_view(func):
-    """
-    Helpful while debugging Selenium unittests.
-    e.g.: server response an error in AJAX requests
-    """
-    @functools.wraps(func)
-    def view_logger(*args, **kwargs):
-        # log.debug("call view %r", func.__name__)
-        try:
-            response = func(*args, **kwargs)
-        except Exception as err:
-            # log.error("view exception: %s", err)
-            traceback.print_exc(file=sys.stderr)
-            raise
-
-        # log.debug("Response: %s", response)
-        return response
-    return view_logger
-
-
 # @log_view
+@TimingAttackPreventer
 @csrf_protect
 def get_salt(request):
     """
@@ -102,8 +78,13 @@ def get_salt(request):
         # log.debug("\nUse pseudo salt!!!")
         init_pbkdf2_salt = crypt.get_pseudo_salt(app_settings.PBKDF2_SALT_LENGTH, username)
 
+    response = HttpResponse(init_pbkdf2_salt, content_type="text/plain")
+
+    if send_pseudo_salt:
+        response.add_duration=True # collect duration time in @TimingAttackPreventer
+
     # log.debug("\nsend init_pbkdf2_salt %r to client.", init_pbkdf2_salt)
-    return HttpResponse(init_pbkdf2_salt, content_type="text/plain")
+    return response
 
 
 def display_login_info(sender, user, request, **kwargs):
@@ -125,12 +106,10 @@ user_logged_in.connect(display_login_info)
 
 
 # @log_view
+@TimingAttackPreventer
 @csrf_protect
 def secure_js_login(request):
-    """
-    FIXME:
-        * Don't send a inserted password back, if form is not valid
-    """
+
     # Create a new random salt value for the password server_challenge:
     new_server_challenge = crypt.seed_generator(app_settings.RANDOM_CHALLENGE_LENGTH)
 
@@ -148,28 +127,36 @@ def secure_js_login(request):
         request.session[SERVER_CHALLENGE_KEY] = new_server_challenge
         # log.debug("Save challenge %r for next POST", new_server_challenge)
 
-    response = login(request,
-        template_name="secure_js_login/secure_js_login.html",
-        # redirect_field_name=REDIRECT_FIELD_NAME,
-        authentication_form=SecureLoginForm,
-        current_app="secure_js_login",
-        extra_context={
-            "title": "Secure-JS-Login",
-            "DEBUG": "true" if settings.DEBUG else "false",
-            "challenge": new_server_challenge,
-            "CHALLENGE_LENGTH": app_settings.RANDOM_CHALLENGE_LENGTH,
-            "NONCE_LENGTH": app_settings.CLIENT_NONCE_LENGTH,
-            "SALT_LENGTH": app_settings.PBKDF2_SALT_LENGTH,
-            "PBKDF2_BYTE_LENGTH": app_settings.PBKDF2_BYTE_LENGTH,
-            "ITERATIONS1": app_settings.ITERATIONS1,
-            "ITERATIONS2": app_settings.ITERATIONS2,
-            "CSRF_COOKIE_NAME": settings.CSRF_COOKIE_NAME,
-        }
-    )
+    try:
+        response = login(request,
+            template_name="secure_js_login/secure_js_login.html",
+            # redirect_field_name=REDIRECT_FIELD_NAME,
+            authentication_form=SecureLoginForm,
+            current_app="secure_js_login",
+            extra_context={
+                "title": "Secure-JS-Login",
+                "DEBUG": "true" if settings.DEBUG else "false",
+                "challenge": new_server_challenge,
+                "CHALLENGE_LENGTH": app_settings.RANDOM_CHALLENGE_LENGTH,
+                "NONCE_LENGTH": app_settings.CLIENT_NONCE_LENGTH,
+                "SALT_LENGTH": app_settings.PBKDF2_SALT_LENGTH,
+                "PBKDF2_BYTE_LENGTH": app_settings.PBKDF2_BYTE_LENGTH,
+                "ITERATIONS1": app_settings.ITERATIONS1,
+                "ITERATIONS2": app_settings.ITERATIONS2,
+                "CSRF_COOKIE_NAME": settings.CSRF_COOKIE_NAME,
+            }
+        )
+    except Exception as err:
+        log.debug("Error: %s" % err)
+        raise
 
-    if request.method == "POST" and not request.user.is_authenticated():
-        # log.debug("Logged in failed: Save new challenge to session")
-        request.session[SERVER_CHALLENGE_KEY] = new_server_challenge
+    if request.user.is_authenticated():
+        if isinstance(response, HttpResponseRedirect):
+            # Successfully logged in
+            response.add_duration=True # collect duration time in @TimingAttackPreventer
+    elif request.method == "POST":
+            # log.debug("Logged in failed: Save new challenge to session")
+            request.session[SERVER_CHALLENGE_KEY] = new_server_challenge
 
     return response
 

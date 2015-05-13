@@ -163,6 +163,10 @@ class SecureLoginBaseTestCase(SimpleTestCase, AdditionalAssertmentsMixin):
         cls.secure_login_url = reverse("secure-js-login:login")
         cls.get_salt_url = reverse("secure-js-login:get_salt")
         cls.honypot_url = reverse("honypot-login:login")
+        cls.django_login_url = reverse("admin:login")
+
+    def out(self, *args):
+        print(*args, file=sys.stderr)
 
     def _secure_js_login_failed_signal_receiver(self, sender, reason, **kwargs):
         if self.VERBOSE:
