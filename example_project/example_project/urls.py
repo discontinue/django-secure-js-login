@@ -41,7 +41,8 @@ urlpatterns = patterns('',
 urlpatterns += staticfiles_urlpatterns()
 
 
-# import debug_toolbar
-# urlpatterns = patterns('',
-#     url(r'^__debug__/', include(debug_toolbar.urls)),
-# ) + urlpatterns
+if settings.USE_DJANGO_TOOLBAR:
+    import debug_toolbar
+    urlpatterns = patterns('',
+        url(r'^__debug__/', include(debug_toolbar.urls)),
+    ) + urlpatterns

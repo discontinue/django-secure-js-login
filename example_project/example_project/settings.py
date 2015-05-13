@@ -82,19 +82,22 @@ ROOT_URLCONF = 'example_project.urls'
 WSGI_APPLICATION = 'example_project.wsgi.application'
 
 
-# django-debug-toolbar - https://github.com/django-debug-toolbar/django-debug-toolbar
-# try:
-#     import debug_toolbar
-# except ImportError:
-#     print("No django-debug-toolbar installed, ok.")
-# else:
-#     print("Activate django-debug-toolbar")
-#     del(debug_toolbar)
-#
-#     INSTALLED_APPS += ('debug_toolbar',)
-#     MIDDLEWARE_CLASSES = (
-#         'debug_toolbar.middleware.DebugToolbarMiddleware',
-#     )  + MIDDLEWARE_CLASSES
+USE_DJANGO_TOOLBAR = False
+# USE_DJANGO_TOOLBAR = True
+if USE_DJANGO_TOOLBAR:
+    # django-debug-toolbar - https://github.com/django-debug-toolbar/django-debug-toolbar
+    try:
+        import debug_toolbar
+    except ImportError:
+        print("\n\n" + "*"*79)
+        print("Please install django-debug-toolbar or set settings.USE_DJANGO_TOOLBAR=False!")
+        print("\te.g.: $ pip install django-debug-toolbar\n")
+        raise
+    del(debug_toolbar)
+    INSTALLED_APPS += ('debug_toolbar',)
+    MIDDLEWARE_CLASSES = (
+        'debug_toolbar.middleware.DebugToolbarMiddleware',
+    )  + MIDDLEWARE_CLASSES
 
 
 
