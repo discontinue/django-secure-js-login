@@ -51,10 +51,10 @@ class SeedGenerator(object):
     Generate a new, random seed values.
 
     >>> seed_generator.DEBUG=True # Generate always the same seed for tests
-    >>> seed_generator(20)
-    'DEBUG_78901234567890'
-    >>> seed_generator(12)
-    'DEBUG_789012'
+    >>> seed_generator(20) == 'DEBUG_78901234567890'
+    True
+    >>> seed_generator(12) == 'DEBUG_789012'
+    True
 
     try to check if every new seed is unique:
     >>> seed_generator.DEBUG=False
@@ -90,8 +90,9 @@ def get_pseudo_salt(length, *args):
 
 def hexlify_pbkdf2(password, salt, iterations, length, digest=hashlib.sha1):
     """
-    >>> hexlify_pbkdf2("not secret", "a salt value", iterations=100, length=16)
-    '0b919231515dde16f76364666cf07107'
+    >>> hash = hexlify_pbkdf2("not secret", "a salt value", iterations=100, length=16)
+    >>> hash == '0b919231515dde16f76364666cf07107'
+    True
     """
     # log.debug("hexlify_pbkdf2 with iterations=%i", iterations)
     hash = crypto.pbkdf2(password, salt, iterations=iterations, dklen=length, digest=digest)
@@ -108,8 +109,8 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
 
     >>> h = PBKDF2SHA1Hasher(iterations=1000, length=32)
     >>> hash = h.encode(password="not secret", salt="a salt value")
-    >>> hash
-    'pbkdf2_sha1$1000$a salt value$9bbc7565baa47ce8e9f5ef181ea2a8959bec965d2ab09b7671e6b1920c67685f'
+    >>> hash == 'pbkdf2_sha1$1000$a salt value$9bbc7565baa47ce8e9f5ef181ea2a8959bec965d2ab09b7671e6b1920c67685f'
+    True
 
     >>> h.verify(password="not secret", encoded=hash)
     True
@@ -119,7 +120,7 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
     >>> PBKDF2SHA1Hasher(iterations=100, length=32).verify(password="not secret", encoded=hash)
     Traceback (most recent call last):
         ...
-    AssertionError: wrong iterations
+    AssertionError: wrong iterations: 1000 != 100
 
     >>> try:
     ...     PBKDF2SHA1Hasher(iterations=1000, length=16).verify(password="not secret", encoded=hash)
@@ -135,8 +136,9 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
 
     Used in secure_js_login.js to check the PBKDF2 JavaScript implementation:
     >>> test_string=" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    >>> PBKDF2SHA1Hasher(iterations=5, length=16).get_hash(password=test_string, salt=test_string)
-    '4460365dc7df037dbdd851f1ffed7130'
+    >>> hash = PBKDF2SHA1Hasher(iterations=5, length=16).get_hash(password=test_string, salt=test_string)
+    >>> hash == '4460365dc7df037dbdd851f1ffed7130'
+    True
     """
     def __init__(self, iterations, length):
         self.iterations = iterations
@@ -146,7 +148,7 @@ class PBKDF2SHA1Hasher(PBKDF2SHA1PasswordHasher):
         assert password is not None, "password is None"
         assert salt and '$' not in salt, "salt contains &"
         if iterations is not None:
-            assert iterations==self.iterations, "wrong iterations"
+            assert iterations==self.iterations, "wrong iterations: %i != %i" % (iterations, self.iterations)
 
         hash = hexlify_pbkdf2(password, salt, iterations=self.iterations, length=self.length, digest=self.digest)
         # log.debug("locals():\n%s", pprint.pformat(locals()))
@@ -188,78 +190,62 @@ class PBKDF2SHA1Hasher1(PBKDF2SHA1Hasher):
     Use ITERATIONS1
 
     >>> seed_generator.DEBUG=True # Generate always the same seed for tests
-    >>> app_settings.ITERATIONS1=10
     >>> pbkdf2 = PBKDF2SHA1Hasher1().get_salt_hash("not secret")
-    >>> pbkdf2
-    'pbkdf2_sha1$10$DEBUG$996599c7bfe3645f1d83f424'
+    >>> pbkdf2 == 'pbkdf2_sha1$5$DEBUG$ccd1d8f3efbfc6d1a7c477f0'
+    True
     """
     def __init__(self):
-        self.iterations = app_settings.ITERATIONS1
-        self.length = app_settings.PBKDF2_BYTE_LENGTH
+        super(PBKDF2SHA1Hasher1, self).__init__(
+            iterations=app_settings.ITERATIONS1,
+            length=app_settings.PBKDF2_BYTE_LENGTH
+        )
+
 
 class PBKDF2SHA1Hasher2(PBKDF2SHA1Hasher):
     """
     Use ITERATIONS2
 
     >>> seed_generator.DEBUG=True # Generate always the same seed for tests
-    >>> app_settings.ITERATIONS2=15
     >>> pbkdf2 = PBKDF2SHA1Hasher2().get_salt_hash("not secret")
-    >>> pbkdf2
-    'pbkdf2_sha1$15$DEBUG$43fae15d1fe996e63df22f1c'
+    >>> pbkdf2 == 'pbkdf2_sha1$10$DEBUG$996599c7bfe3645f1d83f424'
+    True
     """
+
     def __init__(self):
-        self.iterations = app_settings.ITERATIONS2
-        self.length = app_settings.PBKDF2_BYTE_LENGTH
-
-
-class CryptLengthError(AssertionError):
-    pass
+        super(PBKDF2SHA1Hasher2, self).__init__(
+            iterations=app_settings.ITERATIONS2,
+            length=app_settings.PBKDF2_BYTE_LENGTH
+        )
 
 
 class XorCryptor(object):
     """
     XOR ciphering
 
-    TODO: Use hex instead of base64 to get always the same length
-
     >>> seed_generator.DEBUG=True # Generate always the same seed for tests
-    >>> app_settings.ITERATIONS1=10
     >>> xor = XorCryptor()
 
     >>> encrypted = xor.encrypt("1234", "ABCD")
-    >>> encrypted
-    'pbkdf2_sha1$10$DEBUG$bb6212418fade7c4101179b0$70707070'
+    >>> encrypted == 'pbkdf2_sha1$5$DEBUG$84a05bcd7077ae3e2a0956c8$70707070'
+    True
 
-    >>> xor.decrypt(encrypted, "ABCD")
-    '1234'
-
-    >>> try:
-    ...     xor.decrypt(encrypted, "AXXD")
-    ... except SecureJSLoginError as err: print(err)
-    XOR decrypted data: PBKDF2 hash test failed
-
-    >>> try:
-    ...     xor.decrypt('pbkdf2_sha1$10$DEBUG$bb6212418fade7c4101179b0$70XxxX70', "ABCD")
-    ... except SecureJSLoginError as err: print(err)
-    unhexlify error: Non-hexadecimal digit found with data: '70XxxX70'
-
-    >>> try:
-    ...     xor.decrypt(encrypted, "wrong pass")
-    ... except SecureJSLoginError as err: print(err)
-    encrypt error: b'pppp' and 'wrong pass' must have the same length!
+    >>> xor.decrypt(encrypted, "ABCD") == '1234'
+    True
     """
     def xor(self, txt, key):
         """
-        >>> XorCryptor().xor(b"1234", b"ABCD")
-        b'pppp'
-        >>> XorCryptor().xor(b'pppp', b"ABCD")
-        b'1234'
+        >>> crypted = XorCryptor().xor(b"1234", b"ABCD")
+        >>> crypted == b'pppp'
+        True
+        >>> txt = XorCryptor().xor(b'pppp', b"ABCD")
+        >>> txt == b'1234'
+        True
         """
         assert isinstance(txt, six.binary_type), "txt: %s is not binary type!" % repr(txt)
         assert isinstance(key, six.binary_type), "key: %s is not binary type!" % repr(key)
 
         if len(txt) != len(key):
-            raise CryptLengthError("XOR cipher error: '%s' and '%s' must have the same length!" % (txt, key))
+            raise SecureJSLoginError("XOR cipher error: '%s' and '%s' must have the same length!" % (txt, key))
 
         if six.PY2:
             crypted = "".join([chr(ord(t) ^ ord(k)) for t, k in zip(txt, key)])
@@ -278,7 +264,7 @@ class XorCryptor(object):
         assert isinstance(key, six.text_type), "key: %s is not text type!" % repr(key)
 
         if len(txt) != len(key):
-            raise CryptLengthError("encrypt error: '%s' and '%s' must have the same length!" % (txt, key))
+            raise SecureJSLoginError("encrypt error: %s and '%s' must have the same length!" % (txt, key))
 
         pbkdf2_hash = PBKDF2SHA1Hasher1().get_salt_hash(txt)
 
@@ -302,7 +288,7 @@ class XorCryptor(object):
         pbkdf2_hash, crypted = txt.rsplit("$",1)
 
         # if not seed_generator.DEBUG and len(pbkdf2_hash)!=SALT_HASH_LEN:
-        #     raise CryptLengthError(
+        #     raise SecureJSLoginError(
         #         "encrypt error: Salt-hash %s with length %i must be length %i!" % (
         #             repr(pbkdf2_hash), len(pbkdf2_hash), SALT_HASH_LEN
         #         )
@@ -312,10 +298,10 @@ class XorCryptor(object):
             crypted = binascii.unhexlify(crypted)
         except (binascii.Error, TypeError) as err:
             # Py2 will raise TypeError - Py3 the binascii.Error
-            raise SecureJSLoginError("unhexlify error: %s with data: %s" % (err, repr(crypted)))
+            raise SecureJSLoginError("unhexlify error: %s with data: %s" % (err, crypted))
 
         if len(crypted) != len(key):
-            raise SecureJSLoginError("encrypt error: '%s' and '%s' must have the same length!" % (crypted, key))
+            raise SecureJSLoginError("encrypt error: %s and '%s' must have the same length!" % (crypted, key))
 
         key=force_bytes(key)
         decrypted = self.xor(crypted, key)
@@ -339,13 +325,12 @@ def salt_hash_from_plaintext(password):
     Create a XOR encrypted PBKDF2 salted checksum from a plaintext password.
 
     >>> seed_generator.DEBUG=True # Generate always the same seed for tests
-    >>> app_settings.ITERATIONS1=10
 
     >>> salt, data = salt_hash_from_plaintext("test")
-    >>> salt
-    'DEBUG'
-    >>> data
-    'pbkdf2_sha1$10$DEBUG$14bcd36d8a5459742b6252e8$505b0004545007565e510308'
+    >>> salt == 'DEBUG'
+    True
+    >>> data =='pbkdf2_sha1$5$DEBUG$a2220ab7dea891f260edd481$50530c0e530f030b08070353'
+    True
     """
     init_pbkdf2_salt = seed_generator(app_settings.PBKDF2_SALT_LENGTH)
     pbkdf2_temp_hash = hexlify_pbkdf2(

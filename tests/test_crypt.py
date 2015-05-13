@@ -16,7 +16,7 @@ import unittest
 from secure_js_login.exceptions import SecureJSLoginError
 from secure_js_login.utils import crypt
 from tests.test_utils.manipulators import xor_crypt_manipulator
-
+from secure_js_login import settings as app_settings
 
 class TestCryptManipulator(unittest.TestCase):
     def test1(self):
@@ -53,9 +53,9 @@ class TestCrypt(unittest.TestCase):
         crypt.seed_generator.DEBUG=True # Generate always the same seed for tests
         self.test_encrypted = crypt.xor_crypt.encrypt(self.test_string, key=self.test_key)
         crypt.seed_generator.DEBUG=False # Generate always the same seed for tests
-        # self.assertEqual(self.test_encrypted,
-        #     "pbkdf2_sha1$5$DEBUG$3104bd93d8$040e1d"
-        # )
+        self.assertEqual(self.test_encrypted,
+            "pbkdf2_sha1$5$DEBUG$3104bd93d82585a12f854c72$040e1d"
+        )
 
     def test_pbkdf2(self):
         self.assertEqual(
