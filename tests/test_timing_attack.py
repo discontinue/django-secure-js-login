@@ -9,7 +9,7 @@
     :license: GNU GPL v3 or above, see LICENSE for more details
 """
 
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
 
