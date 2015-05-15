@@ -19,6 +19,7 @@ from django.db import models
 from django.db.models import signals
 from django.contrib.auth import get_user_model
 from django.utils.encoding import python_2_unicode_compatible
+from secure_js_login.decorators import TimingAttackPreventer
 
 from secure_js_login.utils import crypt
 from secure_js_login import settings as app_settings
@@ -119,16 +120,20 @@ if app_settings.AUTO_CREATE_PASSWORD_HASH:
     # Save the original method
     orig_set_password = User.set_password
 
+    class Mock(object):
+        """ for TimingAttackPreventer decorator """
+        add_duration=True
 
+    @TimingAttackPreventer()
     def set_password(user, raw_password):
         # log.debug("set plaintext password %r for user %r", raw_password, user.username)
-        if not (raw_password and user):
-            # e.g.: The auth.backends call UserModel().set_password(password) to
-            # run the default password hasher once to reduce the timing
-            # difference between an existing and a non-existing user.
-            return
-
         if user.id == None:
+            if not user.username:
+                # e.g.: The auth.backends call UserModel().set_password(password) to
+                # run the default password hasher once to reduce the timing
+                # difference between an existing and a non-existing user.
+                return
+
             # It is a new user. We must save the django user accound first to get a
             # existing user object with a ID and then the JS-SHA-Login Data can assign to it.
             user.save()
@@ -142,6 +147,8 @@ if app_settings.AUTO_CREATE_PASSWORD_HASH:
 
         userprofile.set_secure_login_data(raw_password)
         userprofile.save()
+
+        return Mock
 
 
     # log.debug("Activate monkey-patch 'User.set_password'")

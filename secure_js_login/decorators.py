@@ -44,33 +44,49 @@ def log_view(func):
 
 
 
+DEQUE_LENGTH = 50
+
 class TimingAttackPreventer(object):
-    timings = collections.deque(maxlen=10)
+    succsessful_timings = collections.deque(maxlen=DEQUE_LENGTH)
+    failed_timings = collections.deque(maxlen=DEQUE_LENGTH)
 
-    def __init__(self, func):
-        self.func = func
+    def avg(self, deque):
+        if deque:
+            return sum(deque) / len(deque)
+        else:
+            return 0
 
-    def __call__(self, *args, **kwargs):
-        # log.debug("call view %r", self.func.__name__)
-        start_time=time.time()
-        try:
-            response = self.func(*args, **kwargs)
-        except Exception as err:
-            # FIXME: also apply time.sleep() ?!?
-            log.error("view exception: %s", err)
-            traceback.print_exc(file=sys.stderr)
-            raise
+    def __call__(self, func):
+        def wrapped_func(*args, **kwargs):
+            # log.debug("\ncall view %r with args: %r kwargs: %r",
+            #     func.__name__, args, kwargs
+            # )
+            start_time=time.time()
+            response = func(*args, **kwargs)
 
-        duration = time.time()-start_time
+            succsessful_length = self.avg(self.succsessful_timings)
+            failed_length = self.avg(self.failed_timings)
 
-        if getattr(response, "add_duration", False):
-            # successful request -> collect duration value
-            self.timings.append(duration)
-        elif self.timings:
-            # failed request -> 'fill' time with collect durations
-            length = random.uniform(min(self.timings), max(self.timings)) - duration
-            if length>0:
-                time.sleep(length)
+            diff_compensation = succsessful_length - failed_length
+            no_compensation = 0
 
-        # log.debug("Response: %s", response)
-        return response
+            if getattr(response, "add_duration", False):
+                # successful request -> collect duration value
+                timing_deque = self.succsessful_timings
+                sleep_length = no_compensation
+            else:
+                # failed request -> 'fill' time with collect durations
+                timing_deque = self.failed_timings
+                sleep_length = diff_compensation
+
+            if sleep_length<0:
+                sleep_length=0
+
+            timing_deque.append(time.time()-start_time)
+
+            time.sleep(sleep_length)
+
+            # log.debug("Response: %s", response)
+            return response
+        return wrapped_func
+

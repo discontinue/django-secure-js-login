@@ -23,11 +23,12 @@ from tests.test_utils.test_cases import SecureLoginClientBaseTestCase
 
 
 # MEASUREING_LOOPS = 10
-MEASUREING_LOOPS = 25
+# MEASUREING_LOOPS = 25
 # MEASUREING_LOOPS = 50
-# MEASUREING_LOOPS = 75
+MEASUREING_LOOPS = 75
 # MEASUREING_LOOPS = 100
 
+MIN_MAX_AVG_PERCENT = 15
 
 
 def average(l):
@@ -35,10 +36,6 @@ def average(l):
         return sum(l) / len(l)
     except ZeroDivisionError:
         return 0
-
-
-def statistics(l):
-    return min(l), average(l), max(l)
 
 
 class BaseTestTimingAttack(SecureLoginClientBaseTestCase):
@@ -49,9 +46,22 @@ class BaseTestTimingAttack(SecureLoginClientBaseTestCase):
         durations = [callback() for _ in range(MEASUREING_LOOPS)]
         duration = time.time() - start_time
 
-        quick, avg, long = statistics(durations)
-        self.out("min: %f - average: %f - max: %f (takes %.2f sec.)" % (
-            quick, avg, long, duration
+        durations.sort()
+        avg = average(durations)
+        count = int(round(MEASUREING_LOOPS/100*MIN_MAX_AVG_PERCENT,0))
+        if count<1:
+            count=1
+        self.out("\tMin/max avg with %i items." % count)
+        avg_min = average(durations[:count])
+        avg_max = average(durations[-count:])
+
+        quick_percent = 100 - (100/avg_min*avg)
+        long_percent = 100 - (100/avg_max*avg)
+        self.out("\tavg.min: %.1fms (%i%%) - average: %.1fms - avg.max: %.1fms (%i%%) (takes %.2f sec.)" % (
+            avg_min*1000, quick_percent,
+            avg*1000,
+            avg_max*1000, long_percent,
+            duration
         ))
         return avg
 
@@ -93,10 +103,12 @@ class TestSecureLoginTimingAttack(BaseTestTimingAttack):
         self.out("\nMeasuring successful secure_js_login (%i loops)..." % MEASUREING_LOOPS)
         average1 = self._measure_loop(self.measured_successful_secure_js_login)
 
-        self.out("\nMeasuring failed secure_js_login (%i loops)..." % MEASUREING_LOOPS)
+        self.out("Measuring failed secure_js_login (%i loops)..." % MEASUREING_LOOPS)
         average2 = self._measure_loop(self.measured_failed_secure_js_login)
 
-        self.out("average secure_js_login diff: %f sec" % (average1 - average2))
+        diff = abs(average1 - average2)
+        percent = abs(100 - (100/average1*average2))
+        self.out(" *** average secure_js_login diff: %.2fms (%.1f%%)" % (diff*1000, percent))
 
     def measured_successful_get_salt(self):
         self._request_server_challenge()
@@ -137,10 +149,12 @@ class TestSecureLoginTimingAttack(BaseTestTimingAttack):
         self.out("\nMeasuring successful get_salt view (%i loops)..." % MEASUREING_LOOPS)
         average1 = self._measure_loop(self.measured_successful_get_salt)
 
-        self.out("\nMeasuring failed get_salt view (%i loops)..." % MEASUREING_LOOPS)
+        self.out("Measuring failed get_salt view (%i loops)..." % MEASUREING_LOOPS)
         average2 = self._measure_loop(self.measured_failed_get_salt)
 
-        self.out("average get_salt view diff: %f sec" % (average1 - average2))
+        diff = abs(average1 - average2)
+        percent = abs(100 - (100/average1*average2))
+        self.out(" *** average get_salt diff: %.2fms (%.1f%%)" % (diff*1000, percent))
 
 
 class TestDjangoLoginTimingAttack(BaseTestTimingAttack):
@@ -159,7 +173,7 @@ class TestDjangoLoginTimingAttack(BaseTestTimingAttack):
         self.client.logout()
         return duration
 
-    def measured_failed_django_login(self):
+    def measured_wrong_password_django_login(self):
         start_time = time.time()
         self.client.post(
             self.django_login_url,
@@ -172,13 +186,36 @@ class TestDjangoLoginTimingAttack(BaseTestTimingAttack):
         duration = time.time() - start_time
         self.assertNotIn(SESSION_KEY, self.client.session)
         return duration
+    
+    def measured_wrong_username_django_login(self):
+        start_time = time.time()
+        self.client.post(
+            self.django_login_url,
+            follow=False,
+            data={
+                "username": "NotExistingUser",
+                "password": "wrong password",
+            }
+        )
+        duration = time.time() - start_time
+        self.assertNotIn(SESSION_KEY, self.client.session)
+        return duration
 
     @override_settings(DEBUG=False)
     def test_django_login(self):
         self.out("\nMeasuring successful django login (%i loops)..." % MEASUREING_LOOPS)
         average1 = self._measure_loop(self.measured_successful_django_login)
 
-        self.out("\nMeasuring failed django login (%i loops)..." % MEASUREING_LOOPS)
-        average2 = self._measure_loop(self.measured_failed_django_login)
+        self.out("Measuring 'wrong password' django login (%i loops)..." % MEASUREING_LOOPS)
+        average2 = self._measure_loop(self.measured_wrong_password_django_login)
 
-        self.out("average django diff: %f sec" % (average1 - average2))
+        self.out("Measuring 'wrong username' django login (%i loops)..." % MEASUREING_LOOPS)
+        average3 = self._measure_loop(self.measured_wrong_username_django_login)
+
+        averages = [average1, average2, average3]
+        min_avg = min(averages)
+        max_avg = max(averages)
+
+        diff = max_avg - min_avg
+        percent = 100 - (100/max_avg*min_avg)
+        self.out(" *** max.average django diff: %.2fms (%.1f%%)" % (diff*1000, percent))

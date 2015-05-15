@@ -36,7 +36,7 @@ SERVER_CHALLENGE_KEY = "server_challenge"
 
 
 # @log_view
-@TimingAttackPreventer
+@TimingAttackPreventer()
 @csrf_protect
 def get_salt(request):
     """
@@ -106,7 +106,7 @@ user_logged_in.connect(display_login_info)
 
 
 # @log_view
-@TimingAttackPreventer
+@TimingAttackPreventer()
 @csrf_protect
 def secure_js_login(request):
 
