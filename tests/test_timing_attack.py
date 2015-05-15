@@ -13,19 +13,22 @@ from __future__ import unicode_literals
 
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
 
+import sys
 import time
+import unittest
 
 from django.contrib.auth import SESSION_KEY
 from django.test import override_settings
 from django.utils import six
 
+from secure_js_login.decorators import TimingAttackPreventer
 from tests.test_utils.test_cases import SecureLoginClientBaseTestCase
 
 
 # MEASUREING_LOOPS = 10
 # MEASUREING_LOOPS = 25
-# MEASUREING_LOOPS = 50
-MEASUREING_LOOPS = 75
+MEASUREING_LOOPS = 50
+# MEASUREING_LOOPS = 75
 # MEASUREING_LOOPS = 100
 
 MIN_MAX_AVG_PERCENT = 15
@@ -36,6 +39,103 @@ def average(l):
         return sum(l) / len(l)
     except ZeroDivisionError:
         return 0
+
+
+class NoAddDurationResponseMock(object):
+    add_duration = False
+
+
+class AddDurationResponseMock(object):
+    add_duration = True
+
+
+preventer = TimingAttackPreventer()
+
+
+def origin_test_func(t, response_mock):
+    time.sleep(t)
+    return response_mock
+
+
+origin_test_func.preventer = preventer
+
+
+@preventer
+# @TimingAttackPreventer()
+def preventer_func(t, response_mock):
+    return origin_test_func(t, response_mock)
+
+
+preventer_func.preventer = preventer
+
+
+# @unittest.skip # Only for developting!
+class TestTimingAttackPreventer(unittest.TestCase):
+    def out(self, *args):
+        print(*args, file=sys.stderr)
+
+    def _measure(self, func, t1, t2, loops):
+        self.out("\nt1=%s vs t2=%s - %i loops:" % (t1, t2, loops))
+
+        func.preventer.reset()
+        duration1 = duration2 = 0
+
+        total_start_time = time.time()
+
+        for _ in range(loops):
+            start_time = time.time()
+            func(t1, AddDurationResponseMock)
+            duration1 += time.time() - start_time
+
+            start_time = time.time()
+            func(t2, NoAddDurationResponseMock)
+            duration2 += time.time() - start_time
+
+        total_duration = time.time() - total_start_time
+
+        diff = abs(duration1 - duration2)
+        percent = 100 / (duration1 + duration2) * diff
+
+        self.out("\t%f vs %f - diff: %.2fms - %.1f%% (total run time: %.1fSec)" % (
+            duration1, duration2, diff * 1000, percent, total_duration
+        ))
+        self.out("\tsuccessful_timings..", list(func.preventer.successful_timings)[-3:])
+        self.out("\tfailed_timings......", list(func.preventer.failed_timings)[-3:])
+        # self.out("\tsleep_timings.......", list(func.preventer.sleep_timings)[-3:])
+
+        return percent
+
+    def test_without_decorator(self):
+        """
+        Just to see the variants in same code path
+        """
+        diff_percent = self._measure(func=origin_test_func, t1=0, t2=0, loops=10000)
+        self.assertLess(diff_percent, 2)
+
+        diff_percent = self._measure(func=origin_test_func, t1=0.001, t2=0, loops=50)
+        self.assertGreater(diff_percent, 95)
+
+    def test_with_decorator(self):
+        """
+        Test TimingAttackPreventer
+        """
+        diff_percent = self._measure(func=preventer_func, t1=0.0005, t2=0.0005, loops=500)
+        self.assertLess(diff_percent, 3)
+
+        diff_percent = self._measure(func=preventer_func, t1=0.005, t2=0.005, loops=100)
+        self.assertLess(diff_percent, 3)
+
+        diff_percent = self._measure(func=preventer_func, t1=0.002, t2=0.001, loops=250)
+        self.assertLess(diff_percent, 3)
+
+        diff_percent = self._measure(func=preventer_func, t1=0.004, t2=0.001, loops=100)
+        self.assertLess(diff_percent, 3)
+
+        diff_percent = self._measure(func=preventer_func, t1=0.008, t2=0.001, loops=75)
+        self.assertLess(diff_percent, 3)
+
+
+
 
 
 class BaseTestTimingAttack(SecureLoginClientBaseTestCase):
@@ -186,7 +286,7 @@ class TestDjangoLoginTimingAttack(BaseTestTimingAttack):
         duration = time.time() - start_time
         self.assertNotIn(SESSION_KEY, self.client.session)
         return duration
-    
+
     def measured_wrong_username_django_login(self):
         start_time = time.time()
         self.client.post(
