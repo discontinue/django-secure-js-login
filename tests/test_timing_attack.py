@@ -119,20 +119,22 @@ class TestTimingAttackPreventer(unittest.TestCase):
         """
         Test TimingAttackPreventer
         """
+        max_diff_percent = 6
+        
         diff_percent = self._measure(func=preventer_func, t1=0.0005, t2=0.0005, loops=500)
-        self.assertLess(diff_percent, 3)
+        self.assertLess(diff_percent, max_diff_percent)
 
         diff_percent = self._measure(func=preventer_func, t1=0.005, t2=0.005, loops=100)
-        self.assertLess(diff_percent, 3)
+        self.assertLess(diff_percent, max_diff_percent)
 
         diff_percent = self._measure(func=preventer_func, t1=0.002, t2=0.001, loops=250)
-        self.assertLess(diff_percent, 3)
+        self.assertLess(diff_percent, max_diff_percent)
 
         diff_percent = self._measure(func=preventer_func, t1=0.004, t2=0.001, loops=100)
-        self.assertLess(diff_percent, 3)
+        self.assertLess(diff_percent, max_diff_percent)
 
         diff_percent = self._measure(func=preventer_func, t1=0.008, t2=0.001, loops=75)
-        self.assertLess(diff_percent, 3)
+        self.assertLess(diff_percent, max_diff_percent)
 
 
 
