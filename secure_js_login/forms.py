@@ -131,7 +131,7 @@ class SecureLoginForm(UsernameForm):
         try:
             server_challenge = self.request.server_challenge
         except AttributeError as err:
-            forms.ValidationError("request.server_challenge not set: %s" % err)
+            raise forms.ValidationError("request.server_challenge not set: %s" % err)
         # log.debug("Challenge from session: '%s'", server_challenge)
 
         if username and secure_password:
