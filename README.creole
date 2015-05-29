@@ -123,6 +123,81 @@ def log_failed_login_handler(sender, reason, **kwargs):
 secure_js_login_failed.connect(log_failed_login_handler)
 }}}
 
+== usage
+
+**settings.py**:
+{{{
+INSTALLED_APPS = (
+    #...
+    "secure_js_login.honypot",
+    "secure_js_login",
+)
+DEBUG=False # Otherwise the user will see detailed information if login failed!
+}}}
+
+**urls.py**:
+{{{
+from secure_js_login.honypot.urls import urls as honypot_urls
+from secure_js_login.urls import urls as secure_js_login_urls
+
+urlpatterns = i18n_patterns('',
+    #...
+    url(r'^login/', include(honypot_urls)),
+    url(r'^secure_login/', include(secure_js_login_urls)),
+    url(r'^jsi18n/(?P<packages>\S+?)/$', 'django.views.i18n.javascript_catalog'),
+    #...
+)
+}}}
+Complete example: [[https://github.com/jedie/django-secure-js-login/blob/master/example_project/example_project/urls.py|example_project/urls.py]]
+
+**templates**:
+{{{
+<a href="{% url 'secure-js-login:login' %}">secure JS login</a>
+<a href="{% url 'honypot-login:login' %}">honypot login</a>
+}}}
+More interesting example:
+{{{
+<a href="{% url 'honypot-login:login' %}" rel="nofollow" onclick="window.location.href = '{% url 'secure-js-login:login' %}'; return false;">login</a>
+}}}
+
+
+After adding secure-js-login create his tables with:
+{{{
+.../your/page $ ./manage.py migrate
+}}}
+
+
+**Important:** The secure login will only work, if the user password was set **after** adding 'secure_js_login' to your project!
+
+=== Troubleshooting
+
+Turn on **settings.DEBUG** to see detailed error messages on failed login.
+
+You can also use [[https://docs.djangoproject.com/en/1.7/topics/logging/|logging]].
+The app will use the logger name **secure_js_login**, e.g.:
+{{{
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'secure_js_login.log',
+        },
+    },
+    'loggers': {
+        'secure_js_login': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
+}}}
+A console logging example can be found here: [[https://github.com/jedie/django-secure-js-login/blob/master/example_project/example_project/settings.py|example_project/settings.py]]
+
+
 
 == Version compatibility
 
