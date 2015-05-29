@@ -3,6 +3,13 @@
 
 {% block title %}Django secure-js-login example project{% endblock %}
 
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="/">Example project home</a>
+{% if title %} &rsaquo; {{ title }}{% endif %}
+</div>
+{% endblock %}
+
 {% block content %}
     <h1>Example project test page.</h1>
     <h2>Try out:</h2>
