@@ -63,9 +63,14 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'django_otp',
+    'django_otp.plugins.otp_totp',
+
     "secure_js_login.honypot",
     "secure_js_login",
 )
+
+
 
 MIDDLEWARE_CLASSES = (
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -144,6 +149,9 @@ AUTHENTICATION_BACKENDS=(
     'secure_js_login.auth_backends.SecureLoginAuthBackend',
     'django.contrib.auth.backends.ModelBackend',
 )
+
+# Two-way verification with Time-based One-time Password (TOTP):
+TOTP_NEEDED = True
 
 LOGIN_REDIRECT_URL="/"
 LOGIN_URL="/"

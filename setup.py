@@ -76,6 +76,8 @@ setup_info = dict(
     zip_safe=False,
     install_requires=[
         "Django>=1.7,<1.9",
+        "django-otp>=0.3.1,<0.4",
+        "PyQRCode>=1.1",
     ],
     tests_require=[
         "selenium", # https://pypi.python.org/pypi/selenium
