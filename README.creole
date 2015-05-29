@@ -133,6 +133,9 @@ INSTALLED_APPS = (
     "secure_js_login",
 )
 DEBUG=False # Otherwise the user will see detailed information if login failed!
+
+# use 'User.set_password' monkey-patch in models.py for create password hashes:
+AUTO_CREATE_PASSWORD_HASH = True
 }}}
 
 **urls.py**:
@@ -197,6 +200,18 @@ LOGGING = {
 }}}
 A console logging example can be found here: [[https://github.com/jedie/django-secure-js-login/blob/master/example_project/example_project/settings.py|example_project/settings.py]]
 
+
+
+Some error messages are:
+
+* **Profile for user 'YourUsername' doesn't exists!**
+
+The user exist, but the password was not set **after** adding 'secure_js_login' to your project!
+Just change the user password. e.g.: on console:
+{{{
+.../your/page $ ./manage.py changepassword YourUsername
+}}}
+...or use the normal django admin login and set the password there.
 
 
 == Version compatibility
