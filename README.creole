@@ -9,6 +9,22 @@ First:
 The Secure-JS-Login is not a simple //"send username + PBKDF2-SHA(password)"//
 It is more a [[http://en.wikipedia.org/wiki/Challenge-handshake_authentication_protocol|Challenge-handshake authentication protocol]]!
 
+
+== Time-based One-time Password (TOTP)
+
+Optional: Two-way verification with Time-based One-time Password (TOTP) specified in [[https://tools.ietf.org/html/rfc6238|RFC 6238]].
+
+Clients, e.g:
+
+* https://github.com/google/google-authenticator
+* https://github.com/markmcavoy/androidtoken
+
+Python Packages used:
+
+* https://pypi.python.org/pypi/django-otp
+* https://pypi.python.org/pypi/PyQRCode
+
+
 == The procedure:
 
 ==== Save a new user password: ====

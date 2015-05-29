@@ -41,3 +41,7 @@ AUTO_CREATE_PASSWORD_HASH = getattr(settings, "AUTO_CREATE_PASSWORD_HASH", False
 # Used cache backend for:
 #  * used cnonce
 CACHE_NAME = getattr(settings, "CACHE_NAME", "default")
+
+# Time-based One-time Password Algorithm (TOTP) needed for login?
+# https://tools.ietf.org/html/rfc6238#section-4
+TOTP_NEEDED = getattr(settings, "TOTP_NEEDED", False)
