@@ -94,7 +94,6 @@ class TOTPDeviceAdmin2(TOTPDeviceAdmin):
             return self._qr_code(instance)
         except Exception as err:
             if settings.DEBUG:
-                print("ERROR: %s" % err)
                 import traceback
                 return "<pre>%s</pre>" % traceback.format_exc()
     qr_code.short_description = _("Key")
