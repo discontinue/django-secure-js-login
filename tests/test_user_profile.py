@@ -16,9 +16,10 @@ from __future__ import unicode_literals
 from django.utils.crypto import get_random_string
 
 from secure_js_login.models import UserProfile
-from tests.test_utils.test_cases import SecureLoginBaseTestCase
 from secure_js_login.utils import crypt
 from secure_js_login import settings as app_settings
+
+from tests.test_utils.base_test_cases import SecureLoginBaseTestCase
 
 
 class TestUserProfile(SecureLoginBaseTestCase):

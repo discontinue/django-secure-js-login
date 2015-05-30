@@ -87,8 +87,8 @@ ROOT_URLCONF = 'example_project.urls'
 WSGI_APPLICATION = 'example_project.wsgi.application'
 
 
-USE_DJANGO_TOOLBAR = False
-# USE_DJANGO_TOOLBAR = True
+# USE_DJANGO_TOOLBAR = False
+USE_DJANGO_TOOLBAR = True
 if USE_DJANGO_TOOLBAR:
     # django-debug-toolbar - https://github.com/django-debug-toolbar/django-debug-toolbar
     try:
@@ -151,7 +151,8 @@ AUTHENTICATION_BACKENDS=(
 )
 
 # Two-way verification with Time-based One-time Password (TOTP):
-TOTP_NEEDED = True
+# TOTP_NEEDED = True
+TOTP_NEEDED = False
 
 LOGIN_REDIRECT_URL="/"
 LOGIN_URL="/"

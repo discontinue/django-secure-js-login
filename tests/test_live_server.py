@@ -10,16 +10,10 @@
 """
 
 from __future__ import unicode_literals, print_function
-import traceback
 
 import unittest
 
-# set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
-import sys
-
-from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.test import override_settings
-from django.utils import six
 
 try:
     import selenium
@@ -37,80 +31,14 @@ else:
 
 # selenium_import_error = "Deactivated!"
 
-from tests.test_utils.test_cases import SecureLoginBaseTestCase
-
-
-class SeleniumVerboseAssert(object):
-    def _verbose_assertion_error(self, err):
-        print("\n", flush=True, file=sys.stderr)
-        print("*" * 79, file=sys.stderr)
-        traceback.print_exc()
-        print(" -" * 40, file=sys.stderr)
-        try:
-            page_source = self.driver.page_source
-        except Exception as e:
-            print("Can't get 'driver.page_source': %s" % e)
-        else:
-            page_source = "\n".join([line for line in page_source.splitlines() if line.rstrip()])
-            print(page_source, file=sys.stderr)
-
-        print("*" * 79, file=sys.stderr)
-        print("\n", flush=True, file=sys.stderr)
-        raise
-
-    def assertNoJavaScriptAltert(self):
-        alert = expected_conditions.alert_is_present()(self.driver)
-        if alert != False:
-            alert_text = alert.text
-            alert.accept() # Confirm a alert dialog, otherwise access to driver.page_source will failed!
-            try:
-                raise self.failureException("Alert is preset: %s" % alert_text)
-            except AssertionError as err:
-                self._verbose_assertion_error(err)
-
-    def assertEqualTitle(self, should):
-        try:
-            self.assertEqual(self.driver.title, should)
-        except AssertionError as err:
-            self._verbose_assertion_error(err)
-
-    def assertInPageSource(self, member):
-        try:
-            self.assertIn(member, self.driver.page_source)
-        except AssertionError as err:
-            self._verbose_assertion_error(err)
-
-    def assertNotInPageSource(self, member):
-        try:
-            self.assertNotIn(member, self.driver.page_source)
-        except AssertionError as err:
-            self._verbose_assertion_error(err)
+from tests.test_utils.selenium_test_cases import SeleniumTestCase
 
 
 @unittest.skipUnless(selenium_import_error is None, selenium_import_error)
-class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumVerboseAssert):
+class SeleniumTests(SeleniumTestCase):
     """
     http://selenium-python.readthedocs.org/
     """
-
-    @classmethod
-    def setUpClass(cls):
-        super(SeleniumTests, cls).setUpClass()
-        cls.driver = webdriver.Firefox()
-        cls.driver.set_window_size(800,600)
-        cls.driver.set_window_position(0,0)
-
-    @classmethod
-    def tearDownClass(cls):
-        try:
-            cls.driver.quit()
-        except:
-            pass
-        super(SeleniumTests, cls).tearDownClass()
-
-    def setUp(self):
-        super(SeleniumTests, self).setUp()
-        self.driver.delete_all_cookies()
 
     def test_example_index_page(self):
         self.driver.get('%s%s' % (self.live_server_url, '/'))
@@ -236,8 +164,10 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
             username=self.SUPER_USER_NAME,
             password=self.SUPER_USER_PASS
         )
+        faked_response = self.get_faked_response()
+
         # Check new loaded page content:
-        self.assertSecureLoginSuccess(self.driver.page_source)
+        self.assertSecureLoginSuccess(faked_response)
 
     @override_settings(DEBUG=True)
     def test_secure_login_wrong_password(self):
@@ -246,8 +176,10 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
             username=self.SUPER_USER_NAME,
             password="Wrong Password"
         )
+        faked_response = self.get_faked_response()
+
         # Check new loaded page content:
-        self.assertSecureLoginFailed(self.driver.page_source)
+        self.assertSecureLoginFailed(faked_response)
         self.assertFailedSignals(
 	        "XOR decrypted data: PBKDF2 hash test failed",
             (
@@ -271,9 +203,11 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
             username="WrongUsername",
             password="Wrong Password"
         )
+        faked_response = self.get_faked_response()
+
         # Check new loaded page content:
-        self.assertSecureLoginFailed(self.driver.page_source)
-        self.assertOnlyCommonFormError(self.driver.page_source)
+        self.assertSecureLoginFailed(faked_response)
+        self.assertOnlyCommonFormError(faked_response)
         self.assertFailedSignals(
             ( # The salt request:
                 "UsernameForm error:"
