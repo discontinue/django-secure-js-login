@@ -47,10 +47,10 @@ class TestSecureLogin(SecureLoginClientBaseTestCase):
         response = self.client.get(self.secure_login_url)
         # debug_response(response)
         self.assertContainsHtml(response,
-            '<input id="id_username" maxlength="254" name="username" type="text" class="required" />'
+            '<input id="id_username" maxlength="254" name="username" type="text" class="required" required="True" />'
         )
         self.assertContainsHtml(response,
-            '<input id="id_password" maxlength="%i" name="password" type="password" class="required"/>' % (
+            '<input id="id_password" maxlength="%i" name="password" type="password" class="required" required="True" />' % (
                 crypt.CLIENT_DATA_LEN
             )
         )
