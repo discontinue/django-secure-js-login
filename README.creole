@@ -24,6 +24,9 @@ Python Packages used:
 * https://pypi.python.org/pypi/django-otp
 * https://pypi.python.org/pypi/PyQRCode
 
+TODO, maybe:
+* Display qrcode on client via: https://github.com/davidshimjs/qrcodejs
+
 
 == The procedure:
 
