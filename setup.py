@@ -26,6 +26,16 @@ from secure_js_login import VERSION_STRING
 
 
 if "publish" in sys.argv:
+    try:
+        import wheel
+    except ImportError as err:
+        print("\nError: %s" % err)
+        print("\nMaybe https://pypi.python.org/pypi/wheel is not installed or virtualenv not activated?!?")
+        print("e.g.:")
+        print("    ~/your/env/$ source bin/activate")
+        print("    ~/your/env/$ pip install wheel")
+        sys.exit(-1)
+        
     import subprocess
     args = [sys.executable or "python", "setup.py", "sdist", "bdist_wheel", "upload"]
     print("\nCall: %r\n" %  " ".join(args))
