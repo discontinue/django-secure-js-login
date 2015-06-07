@@ -20,13 +20,11 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.utils import six
 from django.utils.http import urlquote
 from django.utils.translation import ugettext_lazy as _
+from django.template.loader import render_to_string
 
 from django_otp.oath import TOTP
 from django_otp.plugins.otp_totp.admin import TOTPDeviceAdmin
 from django_otp.plugins.otp_totp.models import TOTPDevice
-
-# https://pypi.python.org/pypi/PyQRCode
-import pyqrcode
 
 from secure_js_login.models import UserProfile
 
@@ -71,23 +69,10 @@ class TOTPDeviceAdmin2(TOTPDeviceAdmin):
             "secret": secret,
             "issuer": urlquote(username),
         }
-        qrcode = pyqrcode.create(key_uri)
-
-        with six.BytesIO() as f:
-            qrcode.svg(file=f, scale=4)
-            svg = f.getvalue()
-
-        svg = six.text_type(svg, encoding="utf-8")
-
-        content = (
-            '<a href="%(url)s">%(url)s</a>'
-            '<br />'
-            '%(svg)s'
-        ) % {
-            "url": key_uri,
-            "svg": svg,
+        context = {
+            "key_uri": key_uri,
         }
-        return content
+        return render_to_string("secure_js_login/qr_info.html", context)
 
     def qr_code(self, instance):
         try:

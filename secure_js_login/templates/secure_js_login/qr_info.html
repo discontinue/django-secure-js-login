@@ -1,0 +1,15 @@
+{% load i18n static %}
+
+<a href="{{ key_uri }}">{{ key_uri }}</a><br />
+<canvas id="qr-code"></canvas>
+<script src="{% static 'secure_js_login/qr.min.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
+<script>
+(function($) {
+	$(document).ready(function() {
+        qr.canvas({
+            canvas: $("#qr-code")[0],
+            value: "{{ key_uri }}"
+        });
+	});
+})(django.jQuery);
+</script>
