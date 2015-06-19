@@ -85,10 +85,15 @@ class SeleniumTestCase(StaticLiveServerTestCase, SecureLoginBaseTestCase):
         return selenium2fakes_response(self.driver, self.client, self.client_class)
 
     def _verbose_assertion_error(self, err):
-        print("\n", flush=True, file=sys.stderr)
-        print("*" * 79, file=sys.stderr)
+        sys.stderr.write("\n\n")
+        sys.stderr.flush()
+        sys.stderr.write("*" * 79)
+        sys.stderr.write("\n")
+
         traceback.print_exc()
-        print(" -" * 40, file=sys.stderr)
+
+        sys.stderr.write(" -" * 40)
+        sys.stderr.write("\n")
         try:
             page_source = self.driver.page_source
         except Exception as e:
@@ -97,9 +102,12 @@ class SeleniumTestCase(StaticLiveServerTestCase, SecureLoginBaseTestCase):
             page_source = "\n".join([line for line in page_source.splitlines() if line.rstrip()])
             print(page_source, file=sys.stderr)
 
-        print("*" * 79, file=sys.stderr)
-        print("\n", flush=True, file=sys.stderr)
-        raise
+        sys.stderr.write("*" * 79)
+        sys.stderr.write("\n")
+        sys.stderr.write("\n\n")
+        sys.stderr.flush()
+
+        raise # raise the origin error
 
     def assertNoJavaScriptAltert(self):
         alert = expected_conditions.alert_is_present()(self.driver)
