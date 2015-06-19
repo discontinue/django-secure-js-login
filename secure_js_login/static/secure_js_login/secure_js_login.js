@@ -222,7 +222,9 @@ function sha_hexdigest(txt) {
     return SHA_hexdigest;
 }
 
-function pbkdf2(txt, salt, iterations, callback, bytes=PBKDF2_BYTE_LENGTH) {
+function pbkdf2(txt, salt, iterations, callback, bytes) {
+    if (typeof(bytes)==='undefined') bytes = PBKDF2_BYTE_LENGTH;
+
     log("pbkdf2 calc with iterations: " + iterations + " - bytes: " + bytes)
     var mypbkdf2 = new PBKDF2(password=txt, salt=salt, iterations=iterations, bytes=bytes);
     mypbkdf2.deriveKey(
