@@ -16,6 +16,8 @@ import traceback
 from django.conf import settings
 from django.utils.importlib import import_module
 
+from django_tools.unittest_utils.selenium_utils import selenium2fakes_response
+
 try:
     import selenium
     from selenium import webdriver
@@ -33,7 +35,7 @@ else:
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.http import HttpResponse, SimpleCookie
 
-from tests.test_utils.base_test_cases import SecureLoginBaseTestCase, FakedHttpResponse
+from tests.test_utils.base_test_cases import SecureLoginBaseTestCase
 
 
 class SeleniumTestCase(StaticLiveServerTestCase, SecureLoginBaseTestCase):
@@ -80,33 +82,7 @@ class SeleniumTestCase(StaticLiveServerTestCase, SecureLoginBaseTestCase):
         [1] https://docs.djangoproject.com/en/1.7/topics/testing/tools/#testing-responses
         [2] https://docs.djangoproject.com/en/1.7/topics/testing/tools/#assertions
         """
-        response = FakedHttpResponse(content=self.driver.page_source)
-        self.client = self.client_class() # Fresh Client() instance
-        response.client = self.client
-
-        # Add 'response.client.cookies':
-        # driver.get_cookies() is a simple list of dict items, e.g.:
-        # [{'name': 'csrftoken', 'value': 'yXoN3...', ...},...]
-        for cookie in self.driver.get_cookies():
-            response.set_cookie(
-                key=cookie["name"],
-                value=cookie["value"],
-
-                max_age=cookie["expiry"],
-
-                path=cookie["path"],
-                domain=cookie["domain"],
-                secure=cookie["secure"],
-            )
-
-        # response.cookies and response.client.cookies
-        # are django.http.cookies.SimpleCookie instances
-        response.client.cookies.update(response.cookies)
-
-        # Add 'response.session':
-        response.session = self.client.session
-
-        return response
+        return selenium2fakes_response(self.driver, self.client, self.client_class)
 
     def _verbose_assertion_error(self, err):
         print("\n", flush=True, file=sys.stderr)

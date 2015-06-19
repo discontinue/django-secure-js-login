@@ -43,13 +43,7 @@ except ImportError as err:
         pprint.pprint(kwargs)
 
 
-class FakedHttpResponse(HttpResponse):
-    """
-    Used in selenium tests.
-    So django assert statements like
-    assertContains() can be used.
-    """
-    pass
+
 
 
 class SecureLoginBaseTestCase(SimpleTestCase):
