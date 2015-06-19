@@ -16,6 +16,7 @@ import traceback
 import logging
 import sys
 
+import django
 from django.contrib.auth import SESSION_KEY
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseBadRequest
@@ -41,9 +42,6 @@ except ImportError as err:
         print(msg)
         pprint.pprint(args)
         pprint.pprint(kwargs)
-
-
-
 
 
 class SecureLoginBaseTestCase(SimpleTestCase):
@@ -197,8 +195,13 @@ class SecureLoginBaseTestCase(SimpleTestCase):
         used with Django Test Client and in Selenium tests!
         """
         self.assertIsInstance(response, HttpResponse)
-        common_error_html = (
-            '<ul class="errorlist">'
+
+        if django.VERSION >= (1, 8):
+            common_error_html = '<ul class="errorlist nonfield">'
+        else:
+            common_error_html = '<ul class="errorlist">'
+
+        common_error_html += (
             '<li>'
             'Please enter a correct username and password.'
             ' Note that both fields may be case-sensitive.'
