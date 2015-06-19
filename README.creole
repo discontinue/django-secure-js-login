@@ -4,12 +4,14 @@ JavaScript Challenge-handshake authentication django app.
 
 | {{https://travis-ci.org/jedie/django-secure-js-login.svg|Build Status on travis-ci.org}} | [[https://travis-ci.org/jedie/django-secure-js-login/|travis-ci.org/jedie/django-secure-js-login]] |
 | {{https://coveralls.io/repos/jedie/django-secure-js-login/badge.svg|Coverage Status on coveralls.io}} | [[https://coveralls.io/r/jedie/django-secure-js-login|coveralls.io/r/jedie/django-secure-js-login]] |
+| {{https://landscape.io/github/jedie/django-secure-js-login/master/landscape.svg|Status on landscape.io}} | [[https://landscape.io/github/jedie/django-secure-js-login/master|landscape.io/github/jedie/django-secure-js-login/master]] |
 
 First:
 The Secure-JS-Login is not a simple //"send username + PBKDF2-SHA(password)"//
 It is more a [[http://en.wikipedia.org/wiki/Challenge-handshake_authentication_protocol|Challenge-handshake authentication protocol]]!
 
 
+= Future plans
 == Time-based One-time Password (TOTP)
 
 Optional: Two-way verification with Time-based One-time Password (TOTP) specified in [[https://tools.ietf.org/html/rfc6238|RFC 6238]].
@@ -24,9 +26,13 @@ Python Packages used:
 * https://pypi.python.org/pypi/django-otp
 * https://pypi.python.org/pypi/PyQRCode
 
-TODO, maybe:
-* Display qrcode on client via: https://github.com/davidshimjs/qrcodejs
+== switch from PBKDF2 to scrypt ?
 
+existing solutions:
+
+https://pypi.python.org/pypi/django-scrypt/ that used https://pypi.python.org/pypi/scrypt/
+
+But both projects sleeps?
 
 == The procedure:
 
