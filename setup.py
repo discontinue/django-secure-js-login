@@ -22,11 +22,13 @@ import sys
 
 from setuptools import setup, find_packages
 
-from secure_js_login import VERSION_STRING
+from secure_js_login import __version__
 
 
 if "publish" in sys.argv:
     try:
+        # Test if wheel is installed, otherwise the user will only see:
+        #   error: invalid command 'bdist_wheel'
         import wheel
     except ImportError as err:
         print("\nError: %s" % err)
@@ -35,16 +37,57 @@ if "publish" in sys.argv:
         print("    ~/your/env/$ source bin/activate")
         print("    ~/your/env/$ pip install wheel")
         sys.exit(-1)
-        
-    import subprocess
-    args = [sys.executable or "python", "setup.py", "sdist", "bdist_wheel", "upload"]
-    print("\nCall: %r\n" %  " ".join(args))
-    subprocess.call(args)
 
-    print("\nDon't forget to tag this version, e.g.:")
-    print("\tgit tag v%s" % VERSION_STRING)
-    print("\tgit push --tags")
-    sys.exit()
+    if "dev" in __version__:
+        print("\nERROR: Version contains 'dev': v%s\n" % __version__)
+        sys.exit(-1)
+
+    import subprocess
+
+    def verbose_check_output(*args):
+        print("\nCall: %r\n" %  " ".join(args))
+        try:
+            return subprocess.check_output(args, universal_newlines=True)
+        except subprocess.CalledProcessError as err:
+            print("\n***ERROR:")
+            print(err.output)
+            raise
+
+    def verbose_check_call(*args):
+        print("\nCall: %r\n" %  " ".join(args))
+        subprocess.check_call(args, universal_newlines=True)
+
+    # Check if we are on 'master' branch:
+    output = verbose_check_output("git", "branch", "--no-color")
+    if "* master" in output:
+        print("OK")
+    else:
+        print("\nNOTE: It seems you are not on 'master':")
+        print(output)
+        if input("\nPublish anyhow? (Y/N)").lower() not in ("y", "j"):
+            print("Bye.")
+            sys.exit(-1)
+
+    # publish only if git repro is clean:
+    output = verbose_check_output("git", "status", "--porcelain")
+    if output == "":
+        print("OK")
+    else:
+        print("\n***ERROR: git repro not clean:")
+        print(output)
+        sys.exit(-1)
+
+    # tag first (will raise a error of tag already exists)
+    verbose_check_call("git", "tag", "v%s" % __version__)
+
+    # build and upload to PyPi:
+    verbose_check_call(sys.executable or "python", "setup.py", "sdist", "bdist_wheel", "upload")
+
+    # push
+    verbose_check_call("git", "push")
+    verbose_check_call("git", "push", "--tags")
+
+    sys.exit(0)
 
 
 PACKAGE_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -71,10 +114,9 @@ def get_authors():
     return authors
 
 
-
-setup_info = dict(
+setup(
     name='django-secure-js-login',
-    version=VERSION_STRING,
+    version=__version__,
     description='JavaScript Challenge-handshake authentication django app',
     long_description=long_description,
     author=get_authors(),
@@ -87,7 +129,6 @@ setup_info = dict(
     install_requires=[
         "Django>=1.7,<1.9",
         "django-otp>=0.3.1,<0.4",
-        "PyQRCode>=1.1",
     ],
     tests_require=[
         "selenium", # https://pypi.python.org/pypi/selenium
@@ -114,4 +155,3 @@ setup_info = dict(
     ],
     test_suite="runtests.cli_run",
 )
-setup(**setup_info)

@@ -10,17 +10,19 @@
 """
 
 from __future__ import unicode_literals
-from django.contrib import messages
 
+from django.contrib import messages
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.conf import settings
 
+from secure_js_login import __version__
 from secure_js_login import settings as app_settings
 
 
 def index(request):
     return render(request, "example_project/index.html", {
+        "version": __version__,
         "totp": app_settings.TOTP_NEEDED,
 
         # New in django 1.8: To see the "user-tools" bar with logout link
