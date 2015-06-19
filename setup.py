@@ -132,7 +132,7 @@ setup(
     ],
     tests_require=[
         "selenium", # https://pypi.python.org/pypi/selenium
-        "django-tools",  # https://github.com/jedie/django-tools/
+        "django-tools>=0.29.2",  # https://github.com/jedie/django-tools/
     ],
     classifiers=[
        # 'Development Status :: 1 - Planning',

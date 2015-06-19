@@ -95,10 +95,15 @@ class SecureLoginBaseTestCase(SimpleTestCase):
         print(*args, file=sys.stderr)
 
     def _verbose_assertion_error(self, page_source):
-        print("\n", file=sys.stderr)
-        print("*" * 79, file=sys.stderr)
+        sys.stderr.write("\n\n")
+        sys.stderr.flush()
+        sys.stderr.write("*" * 79)
+        sys.stderr.write("\n")
+
         traceback.print_exc()
-        print(" -" * 40, file=sys.stderr)
+
+        sys.stderr.write(" -" * 40)
+        sys.stderr.write("\n")
 
         if isinstance(page_source, HttpResponse):
             print("Response info:", file=sys.stderr)
@@ -113,9 +118,10 @@ class SecureLoginBaseTestCase(SimpleTestCase):
             page_source = "\n".join([line for line in page_source.splitlines() if line.rstrip()])
             print(page_source, file=sys.stderr)
 
-        print("*" * 79, file=sys.stderr)
-        print("\n", file=sys.stderr)
-        raise
+        sys.stderr.write("*" * 79)
+        sys.stderr.write("\n")
+
+        raise # raise the origin error
 
     def assertContainsHtml(self, response, *args):
         self.assertIsInstance(response, HttpResponse)
@@ -141,16 +147,21 @@ class SecureLoginBaseTestCase(SimpleTestCase):
 
         self.assertNoFailedSignals()
         try:
-            # Client is logged in:
-            self.assertIn(SESSION_KEY, self.client.session)
-
-            # secure-js-login challenge will be removed after login:
-            self.assertNotIn(SERVER_CHALLENGE_KEY, self.client.session)
-
             self.assertContains(response, "You are logged in.", html=False)
             self.assertContains(response, "Last login was:", html=False)
             self.assertContains(response, self.SUPER_USER_NAME, html=False)
             self.assertContains(response, "Log out", html=False)
+
+            # Client is logged in:
+            try:
+                self.assertIn(SESSION_KEY, response.client.session)
+            except AssertionError as err:
+                raise AssertionError("%s\nclient.session: %s" % (
+                    err, pprint.pformat(response.client.session)
+                ))
+
+            # secure-js-login challenge will be removed after login:
+            self.assertNotIn(SERVER_CHALLENGE_KEY, response.client.session)
 
             self.assertNotContains(response, "Traceback", html=False)
         except AssertionError as err:
@@ -165,10 +176,10 @@ class SecureLoginBaseTestCase(SimpleTestCase):
             self.assertNotIsInstance(response, HttpResponseBadRequest)
 
             # Client is not logged in:
-            self.assertNotIn(SESSION_KEY, self.client.session)
+            self.assertNotIn(SESSION_KEY, response.client.session)
 
             # secure-js-login challenge in session:
-            self.assertIn(SERVER_CHALLENGE_KEY, self.client.session)
+            self.assertIn(SERVER_CHALLENGE_KEY, response.client.session)
 
             self.assertNotContains(response,"You are logged in.", html=False)
             self.assertNotContains(response,"Last login was:", html=False)
@@ -198,10 +209,10 @@ class SecureLoginBaseTestCase(SimpleTestCase):
             self.assertContains(response, common_error_html, count=1, html=True)
 
             # Client is not logged in:
-            self.assertNotIn(SESSION_KEY, self.client.session)
+            self.assertNotIn(SESSION_KEY, response.client.session)
 
             # secure-js-login challenge in session:
-            self.assertIn(SERVER_CHALLENGE_KEY, self.client.session)
+            self.assertIn(SERVER_CHALLENGE_KEY, response.client.session)
 
             # No field errors: Only the common error should be exists.
             self.assertContains(response, "errorlist", count=1, html=False)
