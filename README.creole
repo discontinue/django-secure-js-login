@@ -10,6 +10,13 @@ First:
 The Secure-JS-Login is not a simple //"send username + PBKDF2-SHA(password)"//
 It is more a [[http://en.wikipedia.org/wiki/Challenge-handshake_authentication_protocol|Challenge-handshake authentication protocol]]!
 
+== Status
+
+Current implementation used the new Web Cryptography API:
+* PBKDF2, deriveBits with SHA-1
+
+So, not every browser/OS combination will work. Try:
+* https://diafygi.github.io/webcrypto-examples/
 
 = Future plans
 == Time-based One-time Password (TOTP)
