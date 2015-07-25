@@ -7,7 +7,7 @@ python:
   - "3.4"
 
 addons:
-  firefox: "39.0"
+  firefox: "38.0esr"
 
 env:
   - DJANGO=1.7
