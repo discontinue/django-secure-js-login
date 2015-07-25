@@ -26,6 +26,48 @@ function log() {
 }
 log("JS logging initialized");
 
+
+/**********************************************************
+    Some low-level helper functions
+**********************************************************/
+function string2Uint8Array(text) {
+    // FIXME: How can this be easier?!?
+    var buffer = new Uint8Array(text.length);
+    for (var i = 0; i < text.length; i++) {
+        buffer[i] = text.charCodeAt(i);
+    }
+    return buffer
+}
+function Uint8Array2string(buffer) {
+    // FIXME: How can this be easier?!?
+    var text = ""
+    for (var i=0; i<buffer.byteLength; i++) {
+        text += String.fromCharCode(buffer[i])
+    }
+    return text
+}
+function hex(buffer) {
+    // from example here:
+    // https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
+    var hexCodes = [];
+    var view = new DataView(buffer);
+    for (var i = 0; i < view.byteLength; i += 4) {
+        // Using getUint32 reduces the number of iterations needed (we process 4 bytes each time)
+        var value = view.getUint32(i)
+        // toString(16) will give the hex representation of the number without padding
+        var stringValue = value.toString(16)
+        // We use concatenation and slice for padding
+        var padding = '00000000'
+        var paddedValue = (padding + stringValue).slice(-padding.length)
+        hexCodes.push(paddedValue);
+    }
+    return hexCodes.join(""); // Join all the hex strings into one
+}
+
+
+//-----------------------------------------------------------------------------
+
+
 try {
     jQuery(document);
     log("jQuery loaded, ok.");
@@ -204,22 +246,30 @@ function generate_nonce(start_value) {
     cnonce += $(window).width();
     //cnonce = "Always the same, test.";
     log("generated cnonce from:" + cnonce);
-    cnonce = sha_hexdigest(cnonce);
+    cnonce = sha512_hexdigest(cnonce);
     log("SHA cnonce....: '" + cnonce + "'");
     cnonce = cnonce.substr(0, NONCE_LENGTH);
     log("cnonce cut to.: '" + cnonce + "'");
     return cnonce
 }
 
-function sha_hexdigest(txt) {
+function sha512_hexdigest(txt) {
     /*
         build the SHA hexdigest from the given string. Return false is anything is wrong.
     */
-    log("sha_hexdigest('" + txt + "'):");
-    var SHA_hexdigest = hex_sha1(txt); // from: sha.js
-    assert_length(SHA_hexdigest, 40, "SHA_hexdigest");
-    log(SHA_hexdigest);
-    return SHA_hexdigest;
+    log("sha512_hexdigest('" + txt + "'):");
+
+    // TODO: add work-a-round if TextEncoder not supported
+    // IE / Safari, see:
+    // https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder
+    var buffer = new TextEncoder("utf-8").encode(txt);
+
+    return crypto.subtle.digest("SHA-512", buffer).then(function (hash) {
+        var sha512_hexdigest = hex(hash);
+        log(sha512_hexdigest);
+        assert_length(sha512_hexdigest, 128, "sha512_hexdigest");
+        return sha512_hexdigest
+    });
 }
 
 function pbkdf2(txt, salt, iterations, callback, bytes) {
@@ -318,23 +368,28 @@ var test_string = " " + digits + ascii_lowercase + ascii_uppercase;
 
 
 function test_sha_js() {
-    log("Check sha.js...");
-    
-    if (typeof hex_sha1 === 'undefined') {
-        throw "Error:\nsha.js not loaded.\n(hex_sha1 not defined)";
-    }
-
-    if (typeof sha_hexdigest === 'undefined') {
-        throw "Error:\nWrong secure_js_login.js loaded! Please update your static files\n(sha_hexdigest not defined)";
-    }
-
-    var test_sha = sha_hexdigest(test_string);
-    var should_be = "5b415e2e5421a30b798c9b46638fcd7b58ff4d53".toLowerCase();
-    if (test_sha != should_be) {
-        throw "sha.js test failed!\n'" + test_sha + "' != '" + should_be + "'";
-    }
-    log("Check the sha1 functions is ok.");
+    log("Check sha...");
+    return sha512_hexdigest(test_string).then(function (test_sha) {
+        var should_be = "a65e0af3515b50f5edb593496634255e6599ba66a3fd0d08f26db4bd3b14d9c2b4c3b7cd64ed450ba023b1dcd5a797313aa5df6a1cf11a18f8c0fde523fffc2f";
+        if (test_sha != should_be) {
+            throw "sha test failed!\n'" + test_sha + "' != '" + should_be + "'";
+        }
+        log("Check the sha functions is ok.");
+    });
 }
+
+
+function check_webcrypto() {
+    window.crypto = window.crypto || window.msCrypto; // IE11 has msCrypto
+    if (window.crypto.webkitSubtle) {  // Safari
+        window.crypto.subtle = window.crypto.webkitSubtle;
+    }
+    if (!window.crypto) {
+        throw "ERROR: browser does not support Web Cryptography API!";
+    }
+    log("Check Web Cryptography API is ok.");
+}
+
 
 var precheck_secure=false;
 function precheck_secure_login() {
@@ -349,10 +404,12 @@ function precheck_secure_login() {
 
     assert_variable_length("challenge", CHALLENGE_LENGTH);
 
-    test_sha_js(); // Check the sha1 functions from external js files
-    test_pbkdf2_js();
+    check_webcrypto();
 
-    precheck_secure=true;
+    return test_sha_js().then(function() {
+        precheck_secure=true;
+    });
+    //test_pbkdf2_js();
 }
 
 
@@ -378,9 +435,21 @@ function init_secure_login() {
     $("#content-main").append('<p id="init_message">init...</p>');
 
     log("secure_js_login.js - init_secure_login()");
-
+    
     try {
-        precheck_secure_login()
+        precheck_secure_login().then(function() {
+            log("precheck ok.");
+  			$("#init_message").slideUp();
+			$("form").slideDown();
+
+			if ($(ID_USERNAME).val() == "") {
+				$(ID_USERNAME).focus();
+			} else if ($(ID_PASSWORD).val() == "") {
+				$(ID_PASSWORD).focus();
+			} else {
+				$(ID_OTP_TOKEN).focus();
+			}
+        });
     } catch (e) {
         low_level_error(e);
         return false;
@@ -490,17 +559,6 @@ function init_secure_login() {
         }
         return false;
     });
-
-    $("#init_message").slideUp();
-    $("form").slideDown();
-
-    if ($(ID_USERNAME).val() == "") {
-        $(ID_USERNAME).focus();
-    } else if ($(ID_PASSWORD).val() == "") {
-        $(ID_PASSWORD).focus();
-    } else {
-        $(ID_OTP_TOKEN).focus();
-    }
 }
 
 
