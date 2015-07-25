@@ -246,6 +246,7 @@ Check, if you add **'secure_js_login.auth_backends.SecureLoginAuthBackend'** to 
 
 * v0.3.0 - **dev**
 ** use Browser Web Cryptography API (instead of pure JavaScript SHA/PBKDF2 implementation)
+** increase default PBKDF2 iteration (TODO: test on Raspberry Pi 1 !)
 ** check cnonce against replay attacks
 ** refactor validation process
 ** fire signal on failed login with a 'reason' message
