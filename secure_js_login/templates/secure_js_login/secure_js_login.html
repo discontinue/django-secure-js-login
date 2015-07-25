@@ -39,6 +39,7 @@ jQuery(document).ready(function($) {
 {% block content %}{{ block.super }}
 <div id="content-main">
     <noscript><p class="errornote">Please enable JavaScript!</p></noscript>
+    <div id="js_page_msg" style="display:none"></div>
     <form action="{{ app_path }}" method="post" id="login-form">{% csrf_token %}
         <table>
         {{ form.as_table }}

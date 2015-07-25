@@ -108,28 +108,15 @@ function ajax_error_handler(XMLHttpRequest, textStatus, errorThrown) {
 }
 
 
-function _page_msg(msg){
-    $("#js_page_msg").html(msg).slideDown().css("display", "block");
-}
 function page_msg_error(msg) {
-    $("#js_page_msg").removeClass("page_msg_info page_msg_success").addClass("page_msg_error");
-    _page_msg(msg);
+    $("#js_page_msg").html("<p>"+msg+"</p>").show().addClass("errornote");
 }
-function page_msg_success(msg) {
-    $("#js_page_msg").removeClass("page_msg_info page_msg_success").addClass("page_msg_success");
-    _page_msg(msg);    
-}
-function page_msg_info(msg) {
-    $("#js_page_msg").removeClass("page_msg_success page_msg_error").addClass("page_msg_info");
-    _page_msg(msg);    
-}
-
-
 function low_level_error(msg) {
-    log(msg);
-    $("#page_content").html("<"+"h2>" + msg + "<"+"/h2>");
+    log("Low level error:"+msg);
+    page_msg_error(msg);
+    $("#init_message").hide();
     alert(msg);
-    return false;
+    throw msg;
 }
 
 function assert_global_variable_exists(name) {
@@ -321,11 +308,11 @@ function test_pbkdf2_js() {
         if (hex_hash == should_be) {
             log("Check PBKDF2 passed.");
         } else {
-            msg = "ERROR: PBKDF2 test failed!\n'" + hex_hash + "' != '" + should_be + "'"
-            alert(msg);
-            throw msg;
+            throw "PBKDF2 test failed!\n'" + hex_hash + "' != '" + should_be + "'";
         }
-    })
+    }).catch(function(err){
+        throw "Error running PBKDF2 test:" + err;
+    });
 }
 
 
@@ -381,9 +368,11 @@ function test_sha_js() {
     return sha512_hexdigest(test_string).then(function (test_sha) {
         var should_be = "a65e0af3515b50f5edb593496634255e6599ba66a3fd0d08f26db4bd3b14d9c2b4c3b7cd64ed450ba023b1dcd5a797313aa5df6a1cf11a18f8c0fde523fffc2f";
         if (test_sha != should_be) {
-            throw "sha test failed!\n'" + test_sha + "' != '" + should_be + "'";
+            throw "SHA compare test failed:\n'" + test_sha + "' != '" + should_be + "'";
         }
         log("Check the sha functions is ok.");
+    }).catch(function(err){
+        throw "Error running SHA test:" + err;
     });
 }
 
@@ -433,10 +422,6 @@ function sleep(milliseconds) {
   }
 }
 
-var ID_FORM="#login-form";
-var ID_USERNAME="#id_username";
-var ID_PASSWORD="#id_password";
-var ID_OTP_TOKEN="#id_otp_token";
 function init_secure_login() {
     /*
         Secure-JS-Login
@@ -449,20 +434,14 @@ function init_secure_login() {
     try {
         precheck_secure_login().then(function() {
             log("precheck ok.");
-  			$("#init_message").slideUp();
-			$("form").slideDown();
-
-			if ($(ID_USERNAME).val() == "") {
-				$(ID_USERNAME).focus();
-			} else if ($(ID_PASSWORD).val() == "") {
-				$(ID_PASSWORD).focus();
-			} else {
-				$(ID_OTP_TOKEN).focus();
-			}
+            $("#init_message").slideUp();
+            $("form").slideDown();
+            $(ID_USERNAME).focus();
+        }).catch(function(err){
+            low_level_error(err);
         });
-    } catch (e) {
-        low_level_error(e);
-        return false;
+    } catch (err) {
+        low_level_error(err);
     }
 
     $(ID_USERNAME).change(function() {
@@ -472,9 +451,6 @@ function init_secure_login() {
         salt="";
         return false;
     });
-
-//    $(ID_USERNAME).val("test"); // XXX: for testing only!!!
-//    setTimeout(function() { $(ID_PASSWORD).val("12345678"); }, 2); // XXX: for testing only!!!
 
     var submit_by="user";
     var salt=""; // will be set via ajax
