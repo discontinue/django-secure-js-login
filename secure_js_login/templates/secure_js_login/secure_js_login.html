@@ -26,7 +26,6 @@ var get_salt_url="{% url 'secure-js-login:get_salt' %}";
 </script>
 <script type="text/javascript" src="{% static 'admin/js/jquery.min.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
 <script type="text/javascript" src="{% url 'django.views.i18n.javascript_catalog' packages='auth' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
-<script type="text/javascript" src="{% static 'secure_js_login/pbkdf2.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
 <script type="text/javascript" src="{% static 'secure_js_login/secure_js_login.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
 <script type="text/javascript">
 jQuery(document).ready(function($) {

@@ -246,81 +246,90 @@ function generate_nonce(start_value) {
     cnonce += $(window).width();
     //cnonce = "Always the same, test.";
     log("generated cnonce from:" + cnonce);
-    cnonce = sha512_hexdigest(cnonce);
-    log("SHA cnonce....: '" + cnonce + "'");
-    cnonce = cnonce.substr(0, NONCE_LENGTH);
-    log("cnonce cut to.: '" + cnonce + "'");
-    return cnonce
+    return sha512_hexdigest(cnonce).then(function(cnonce){
+        log("SHA cnonce....: '" + cnonce + "'");
+        cnonce = cnonce.substr(0, NONCE_LENGTH);
+        log("cnonce cut to.: '" + cnonce + "'");
+        return cnonce
+    });
 }
 
-function sha512_hexdigest(txt) {
+function sha_hexdigest(txt, prefix) {
     /*
         build the SHA hexdigest from the given string. Return false is anything is wrong.
     */
-    log("sha512_hexdigest('" + txt + "'):");
+    log("SHA-"+prefix+" from: '" + txt + "'");
 
     // TODO: add work-a-round if TextEncoder not supported
     // IE / Safari, see:
     // https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder
     var buffer = new TextEncoder("utf-8").encode(txt);
 
-    return crypto.subtle.digest("SHA-512", buffer).then(function (hash) {
-        var sha512_hexdigest = hex(hash);
-        log(sha512_hexdigest);
-        assert_length(sha512_hexdigest, 128, "sha512_hexdigest");
-        return sha512_hexdigest
+    return window.crypto.subtle.digest("SHA-"+prefix, buffer).then(function (hash) {
+        return hex(hash);
     });
 }
+function sha1_hexdigest(txt) {
+    return sha_hexdigest(txt, 1);
+}
+function sha512_hexdigest(txt) {
+    return sha_hexdigest(txt, 512);
+}
 
-function pbkdf2(txt, salt, iterations, callback, bytes) {
+
+function pbkdf2(txt, salt, iterations, bytes) {
     if (typeof(bytes)==='undefined') bytes = PBKDF2_BYTE_LENGTH;
 
     log("pbkdf2 calc with iterations: " + iterations + " - bytes: " + bytes)
-    var mypbkdf2 = new PBKDF2(password=txt, salt=salt, iterations=iterations, bytes=bytes);
-    mypbkdf2.deriveKey(
-        function(percent_done) {
-            var msg="Computed " + Math.floor(percent_done) + "%";
-//            log(msg);
-            $(ID_PASSWORD).val(msg);
-        },
-        function(key) {
-            var msg="The derived " + (bytes*8) + "-bit key is: " + key;
-            log(msg);
-            $(ID_PASSWORD).val(key);
-            callback(key);
-        }
-    );
+
+    // TODO: add work-a-round if TextEncoder not supported
+    // IE / Safari, see:
+    // https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder
+    txt = new TextEncoder("utf-8").encode(txt);
+
+    return window.crypto.subtle.importKey(
+        "raw", txt, {name: "PBKDF2"},
+        false, //whether the key is extractable (i.e. can be used in exportKey)
+        ["deriveBits"] // ["deriveKey", "deriveBits"] //can be any combination of "deriveKey" and "deriveBits"
+    ).then(function(key){
+        salt = new TextEncoder("utf-8").encode(salt);
+        return window.crypto.subtle.deriveBits(
+            {
+                "name": "PBKDF2",
+                salt: salt,
+                iterations: iterations,
+                hash: {name: "SHA-1"},
+            },
+            key, bytes*8
+        ).then(function(hash){ // get a ArrayBuffer back
+            var hex_hash=hex(hash);
+            log("The derived " + (bytes*8) + "-bit key is: " + hex_hash);
+            return hex_hash;
+        })
+    })
 }
 
 function test_pbkdf2_js() {
-    log("Check pbkdf2.js...");
-
-    if (typeof PBKDF2 === 'undefined') {
-        throw "Error:\npbkdf2.js not loaded.\n(PBKDF2 not defined)";
-    }
-
-    var old_value = $(ID_PASSWORD).val();
-    pbkdf2(
+    log("Check pbkdf2()");
+    return pbkdf2(
         txt=test_string,
         salt=test_string,
         iterations=5,
-        callback=function(key) {
-            var should_be = '4460365dc7df037dbdd851f1ffed7130';
-            if (key == should_be) {
-                log("Check PBKDF2 function is ok.");
-                $(ID_PASSWORD).val(old_value);
-            } else {
-                msg = "ERROR: pbkdf2.js test failed!\n'" + key + "' != '" + should_be + "'"
-                alert(msg);
-                throw msg;
-            }
-        },
         bytes=16
-    );
+    ).then(function(hex_hash){
+        var should_be = '4460365dc7df037dbdd851f1ffed7130';
+        if (hex_hash == should_be) {
+            log("Check PBKDF2 passed.");
+        } else {
+            msg = "ERROR: PBKDF2 test failed!\n'" + hex_hash + "' != '" + should_be + "'"
+            alert(msg);
+            throw msg;
+        }
+    })
 }
 
 
-function calculate_hashes(password, salt, challenge, callback) {
+function calculate_hashes(password, salt, challenge) {
     log("calculate_hashes with salt '"+salt+"' (length:"+salt.length+") and challenge '"+challenge+"' (length:"+challenge.length+")");
     
     assert_length(salt, SALT_LENGTH, "salt");
@@ -329,7 +338,7 @@ function calculate_hashes(password, salt, challenge, callback) {
     log('pbkdf2_temp_hash = pbkdf2("Plain Password", init_pass_salt):');
 
     var old_value = $(ID_PASSWORD).val();
-    pbkdf2(password, salt, ITERATIONS1, function(pbkdf2_temp_hash) {
+    return pbkdf2(password, salt, ITERATIONS1).then(function(pbkdf2_temp_hash){
         log("pbkdf2_temp_hash = " + pbkdf2_temp_hash);
 
         // split pbkdf2_temp_hash
@@ -339,21 +348,21 @@ function calculate_hashes(password, salt, challenge, callback) {
         log("first_pbkdf2_part = " + first_pbkdf2_part);
         log("second_pbkdf2_part = " + second_pbkdf2_part);
 
-        var cnonce = generate_nonce("django secure JS login");
-        assert_length(cnonce, NONCE_LENGTH, "cnonce");
+        return generate_nonce(start_value="django secure JS login").then(function(cnonce) {
+            assert_length(cnonce, NONCE_LENGTH, "cnonce");
 
-        log("second_pbkdf2_salt = cnonce + server_challenge");
-        second_pbkdf2_salt = cnonce + challenge;
-        log("second_pbkdf2_salt = " + second_pbkdf2_salt);
+            log("second_pbkdf2_salt = cnonce + server_challenge");
+            second_pbkdf2_salt = cnonce + challenge;
+            log("second_pbkdf2_salt = " + second_pbkdf2_salt);
 
-        log("pbkdf2_hash = pbkdf2(first_pbkdf2_part, salt=cnonce + server_challenge)");
-        pbkdf2(first_pbkdf2_part, second_pbkdf2_salt, ITERATIONS2, function(pbkdf2_hash) {
-            log("pbkdf2_hash = " + pbkdf2_hash);
-            log("result = pbkdf2_hash + $ + second_pbkdf2_part + $ + cnonce")
-            var result = pbkdf2_hash + "$" + second_pbkdf2_part + "$" + cnonce;
-            log("result = " + result);
-            $(ID_PASSWORD).val(result);
-            return callback();
+            log("pbkdf2_hash = pbkdf2(first_pbkdf2_part, salt=cnonce + server_challenge)");
+            return pbkdf2(first_pbkdf2_part, second_pbkdf2_salt, ITERATIONS2).then(function(pbkdf2_hash) {
+                log("pbkdf2_hash = " + pbkdf2_hash);
+                log("result = pbkdf2_hash + $ + second_pbkdf2_part + $ + cnonce")
+                var result = pbkdf2_hash + "$" + second_pbkdf2_part + "$" + cnonce;
+                log("result = " + result);
+                return result
+            });
         });
     });
 }
@@ -407,9 +416,10 @@ function precheck_secure_login() {
     check_webcrypto();
 
     return test_sha_js().then(function() {
-        precheck_secure=true;
+        return test_pbkdf2_js().then(function() {
+            precheck_secure=true;
+        })
     });
-    //test_pbkdf2_js();
 }
 
 
@@ -545,7 +555,8 @@ function init_secure_login() {
                 }
 
                 $(ID_PASSWORD).val(gettext("Calculate the hashes..."));
-                calculate_hashes(password, salt, challenge, callback=function(){
+                calculate_hashes(password, salt, challenge).then(function(result) {
+                    $(ID_PASSWORD).val(result);
                     submit_by="callback";
                     $("form input:submit").click();
                 });
