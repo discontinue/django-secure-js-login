@@ -12,10 +12,11 @@
 from __future__ import unicode_literals
 
 import logging
-from django.contrib.auth import get_user_model
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
 from django.core.exceptions import ObjectDoesNotExist
+
 from secure_js_login.models import UserProfile
 from secure_js_login.signals import secure_js_login_failed
 from secure_js_login.exceptions import SecureJSLoginError
