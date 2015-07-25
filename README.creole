@@ -58,7 +58,7 @@ Server part:
 # generate the auth data:
 ## {{{pbkdf2_temp_hash = pbkdf2("Plain Password", init_pbkdf2_salt)}}}
 ## split **pbkdf2_temp_hash** into **first_pbkdf2_part** and **second_pbkdf2_part**
-## {{{cnonce = SHA1(random data)}}}
+## {{{cnonce = SHA512(random data)}}}
 ## {{{pbkdf2_hash = pbkdf2(first_pbkdf2_part, salt=cnonce + server_challenge)}}}
 # send **pbkdf2_hash**, **second_pbkdf2_part** and **cnonce** to the server
 
@@ -270,6 +270,7 @@ Check, if you add **'secure_js_login.auth_backends.SecureLoginAuthBackend'** to 
 == changelog
 
 * v0.3.0 - **dev**
+** use Browser Web Cryptography API (instead of pure JavaScript SHA/PBKDF2 implementation)
 ** check cnonce against replay attacks
 ** refactor validation process
 ** fire signal on failed login with a 'reason' message
@@ -309,20 +310,6 @@ Check, if you add **'secure_js_login.auth_backends.SecureLoginAuthBackend'** to 
 | Travis CI           | [[https://travis-ci.org/jedie/django-secure-js-login/]]
 | Coveralls           | [[https://coveralls.io/r/jedie/django-secure-js-login]]
 
-
-== Used JavaScript Implementations
-
-* SHA1 - JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined in FIPS 180-1
-** http://pajhome.org.uk/crypt/md5/sha1.html
-** Implemented by Paul Johnston
-** Distributed under the BSD License
-** Stored under: [[https://github.com/jedie/django-secure-js-login/blob/master/secure_js_login/static/secure_js_login/sha.js|secure_js_login/static/secure_js_login/sha.js]]
-
-* PBKDF2 - JavaScript implementation of Password-Based Key Derivation Function 2 as defined in RFC 2898
-** http://anandam.name/pbkdf2/
-** Implemented by Parvez Anandam
-** Distributed under the BSD license
-** Stored under: [[https://github.com/jedie/django-secure-js-login/blob/master/secure_js_login/static/secure_js_login/pbkdf2.js|secure_js_login/static/secure_js_login/pbkdf2.js]]
 
 == contact
 
