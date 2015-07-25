@@ -43,7 +43,7 @@ assert PBKDF2_HALF_HEX_LENGTH == app_settings.PBKDF2_BYTE_LENGTH
 
 def hash_hexdigest(txt):
     assert isinstance(txt, six.text_type), "txt: %s is not text type!" % repr(txt)
-    return hashlib.sha1(force_bytes(txt)).hexdigest()
+    return hashlib.sha512(force_bytes(txt)).hexdigest()
 
 
 class SeedGenerator(object):
