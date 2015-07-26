@@ -15,8 +15,28 @@ It is more a [[http://en.wikipedia.org/wiki/Challenge-handshake_authentication_p
 Current implementation used the new Web Cryptography API:
 * PBKDF2, deriveBits with SHA-1
 
-So, not every browser/OS combination will work. Try:
-* https://diafygi.github.io/webcrypto-examples/
+So, not every browser/OS combination will work.
+
+Just try https://diafygi.github.io/webcrypto-examples/ with your preferred browser/OS.
+
+Some browser information's:
+
+**Firefox** support everything in "newer" version.
+The [[https://developer.mozilla.org/en-US/docs/Web/API/Window/crypto|MDN Window.crypto]] page doesn't contains a minimum version number.
+e.g.: **v31.0esr** doesn't support crypto. **v38.0esr** is needed.
+
+Google **chrome** and **Chromium** is not supported on platforms using NSS for their crypto (Linux and ChromeOS).
+So on Windows is may work, but not tested, yet.
+This will be solved in future versions of Chrome, see also: https://www.chromium.org/blink/webcrypto
+...and it seems that WebCrypt is only available with **https**, see:
+https://www.chromium.org/Home/chromium-security/prefer-secure-origins-for-powerful-new-features
+
+Apple **Safari** should be supported, but not tested, yet.
+
+**IE11** has window.msCrypto but doesn't provide promise {{{.then()}}} / {{{.catch()}}}
+It used the outdated {{{.oncomplete()}}} / {{{.onerror()}}}
+Maybe a work-a-round is possible. Pull request are welcome ;)
+The new **Edge** browser in Windows 10 maybe supported.
 
 = Future plans
 == Time-based One-time Password (TOTP)
