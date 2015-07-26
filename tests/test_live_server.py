@@ -25,7 +25,7 @@ try:
     import selenium
     from selenium import webdriver
     from selenium.common.exceptions import WebDriverException, UnexpectedAlertPresentException, \
-        StaleElementReferenceException
+        StaleElementReferenceException, TimeoutException
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions
@@ -169,13 +169,30 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
             "Please enter the correct username and password for a staff account."
         )
 
+    def _wait(self, conditions, timeout=5, msg="wait timeout"):
+        try:
+            check = WebDriverWait(self.driver, timeout).until(
+                conditions
+            )
+        except TimeoutException as err:
+            print("\nError: %s\n%s\npage source:\n%s\n" % (msg, err, self.driver.page_source))
+            raise
+        else:
+            self.assertTrue(check)
+
     def _submit_secure_login(self, username, password):
         """
         Request secure-js-login page and submit given username/password
         but didn't wait for reload!
         """
         self.driver.get('%s%s' % (self.live_server_url, '/secure_login/'))
-        # print(self.firefox.page_source)
+        self._wait(
+            expected_conditions.visibility_of_element_located(
+                 (By.ID, "init_message")
+            ),
+            timeout=5,
+            msg="Wait for 'init...' text",
+        )
 
         # self.assertInHTML( # Will failed, because tags are escaped inner noscript, why?
         # '<noscript><p class="errornote">Please enable JavaScript!</p></noscript>',
@@ -183,6 +200,23 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
         # )
         self.assertInPageSource('<noscript>')
         self.assertInPageSource("Please enable JavaScript!")
+
+        # get the ID of the password field:
+        password_id = self.driver.execute_script("return ID_PASSWORD;")
+        self.assertNotEqual(password_id, "")
+        if not password_id.startswith("#"):
+            self.fail("Password id doesn't start with '#': %r" % password_id)
+        password_id = password_id[1:] # strip '#'
+
+        # wait until the password field is visible:
+        # self.driver.execute_script('$("form").hide();') # XXX: for developing only!
+        self._wait(
+            expected_conditions.element_to_be_clickable( # is Displayed and Enabled
+                 (By.ID, password_id)
+            ),
+            timeout=5,
+            msg="Wait password field #%s" % password_id
+        )
 
         # Test if precheck was ok
         self.assertEqual(
@@ -200,6 +234,7 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
             ""
         )
 
+        # insert username/password:
         username_input = self.driver.find_element_by_name("username")
         username_input.send_keys(username)
         password_input = self.driver.find_element_by_name("password")
