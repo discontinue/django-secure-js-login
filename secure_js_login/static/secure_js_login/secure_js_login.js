@@ -378,12 +378,13 @@ function test_sha_js() {
 
 
 function check_webcrypto() {
-    window.crypto = window.crypto || window.msCrypto; // IE11 has msCrypto
-    if (window.crypto.webkitSubtle) {  // Safari
-        window.crypto.subtle = window.crypto.webkitSubtle;
-    }
+    // IE11 has window.msCrypto but doesn't provide promise .then() / .catch()
+    // it used the outdated .oncomplete() and .onerror()
     if (!window.crypto) {
         throw "ERROR: browser does not support Web Cryptography API!";
+    }
+    if (window.crypto.webkitSubtle) {  // Safari
+        window.crypto.subtle = window.crypto.webkitSubtle;
     }
     log("Check Web Cryptography API is ok.");
 }
