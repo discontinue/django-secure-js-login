@@ -62,7 +62,7 @@ But both projects sleeps?
 
 == The procedure:
 
-==== Save a new user password: ====
+=== Save a new user password: ===
 
 client browser / JavaScript part::
 # user input a password
@@ -75,7 +75,7 @@ Server part:
 # {{{encrypted_part = xor_encrypt(first_pbkdf2_part, key=second_pbkdf2_part)}}}
 # Save only **encrypted_part** and given **init_pbkdf2_salt** from client
 
-==== Login - client browser / JavaScript part: ====
+=== Login - client browser / JavaScript part: ===
 
 # Use request login
 # server send html login form with a random **server_challenge** value
