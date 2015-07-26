@@ -136,10 +136,10 @@ e.g.:
 
 # install secure-js-login as "editable" to have access to example project server and unittests:
 
-(secure-js-login-env)~/secure-js-login-env $ pip install -e git+git://github.com/jedie/django-secure-js-login.git#egg=django-secure-js-login
+(secure-js-login-env)~/secure-js-login-env $ pip install -e git+https://github.com/jedie/django-secure-js-login.git#egg=django-secure-js-login
 
-run example project server:
-{{{
+# run example project server:
+
 (secure-js-login-env)~/secure-js-login-env $ cd src/django-secure-js-login/
 (secure-js-login-env)~/secure-js-login-env/src/django-secure-js-login $ ./run_example_server.sh
 }}}
