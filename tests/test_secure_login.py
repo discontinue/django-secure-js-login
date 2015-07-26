@@ -13,6 +13,7 @@ from __future__ import unicode_literals, print_function
 
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
 
+import django
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django.http import HttpResponseBadRequest
@@ -46,12 +47,18 @@ class TestSecureLogin(SecureLoginClientBaseTestCase):
     def test_secure_login_page(self):
         response = self.client.get(self.secure_login_url)
         # debug_response(response)
+
+        if django.VERSION >= (1, 8):
+            required_html = "required"
+        else:
+            required_html = 'required="True"'
+
         self.assertContainsHtml(response,
-            '<input id="id_username" maxlength="254" name="username" type="text" class="required" required="True" />'
+            '<input id="id_username" maxlength="254" name="username" type="text" class="required" %s />' % required_html
         )
         self.assertContainsHtml(response,
-            '<input id="id_password" maxlength="%i" name="password" type="password" class="required" required="True" />' % (
-                crypt.CLIENT_DATA_LEN
+            '<input id="id_password" maxlength="%i" name="password" type="password" class="required" %s />' % (
+                crypt.CLIENT_DATA_LEN, required_html
             )
         )
 
