@@ -13,8 +13,11 @@ from __future__ import unicode_literals, print_function
 
 import sys
 import traceback
+
 from django.conf import settings
 from django.utils.importlib import import_module
+from django.contrib.staticfiles.testing import StaticLiveServerTestCase
+from django.http import HttpResponse, SimpleCookie
 
 from django_tools.unittest_utils.selenium_utils import selenium2fakes_response
 
@@ -22,7 +25,7 @@ try:
     import selenium
     from selenium import webdriver
     from selenium.common.exceptions import WebDriverException, UnexpectedAlertPresentException, \
-        StaleElementReferenceException
+        StaleElementReferenceException, TimeoutException
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions
@@ -31,9 +34,6 @@ except ImportError as err:
     selenium_import_error = err
 else:
     selenium_import_error = None
-
-from django.contrib.staticfiles.testing import StaticLiveServerTestCase
-from django.http import HttpResponse, SimpleCookie
 
 from tests.test_utils.base_test_cases import SecureLoginBaseTestCase
 
@@ -49,6 +49,15 @@ class SeleniumTestCase(StaticLiveServerTestCase, SecureLoginBaseTestCase):
         cls.driver.set_window_size(800,600)
         cls.driver.set_window_position(0,0)
 
+        binary_path=cls.driver.binary._start_cmd
+        user_agent = cls.driver.execute_script("return navigator.userAgent;")
+        print(
+            (
+                "\nUsed browser binary: %s\n"
+                "user agent: %s\n"
+            ) % (binary_path, user_agent)
+        )
+
     @classmethod
     def tearDownClass(cls):
         try:
@@ -60,6 +69,21 @@ class SeleniumTestCase(StaticLiveServerTestCase, SecureLoginBaseTestCase):
     def setUp(self):
         super(SeleniumTestCase, self).setUp()
         self.driver.delete_all_cookies()
+
+    def _wait(self, conditions, timeout=5, msg="wait timeout"):
+        """
+        Wait for the given condition.
+        Display page_source on error.
+        """
+        try:
+            check = WebDriverWait(self.driver, timeout).until(
+                conditions
+            )
+        except TimeoutException as err:
+            print("\nError: %s\n%s\npage source:\n%s\n" % (msg, err, self.driver.page_source))
+            raise
+        else:
+            self.assertTrue(check)
 
     def get_faked_response(self):
         """

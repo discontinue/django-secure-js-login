@@ -89,17 +89,6 @@ class SeleniumTests(SeleniumTestCase):
             "Please enter the correct username and password for a staff account."
         )
 
-    def _wait(self, conditions, timeout=5, msg="wait timeout"):
-        try:
-            check = WebDriverWait(self.driver, timeout).until(
-                conditions
-            )
-        except TimeoutException as err:
-            print("\nError: %s\n%s\npage source:\n%s\n" % (msg, err, self.driver.page_source))
-            raise
-        else:
-            self.assertTrue(check)
-
     def _submit_secure_login(self, username, password):
         """
         Request secure-js-login page and submit given username/password
