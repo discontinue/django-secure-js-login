@@ -423,6 +423,10 @@ function sleep(milliseconds) {
   }
 }
 
+var ID_FORM="#login-form";
+var ID_USERNAME="#id_username";
+var ID_PASSWORD="#id_password";
+var ID_OTP_TOKEN="#id_otp_token";
 function init_secure_login() {
     /*
         Secure-JS-Login
