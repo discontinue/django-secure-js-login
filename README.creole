@@ -295,7 +295,7 @@ Check, if you add **'secure_js_login.auth_backends.SecureLoginAuthBackend'** to 
 
 == changelog
 
-* v0.3.0 - **dev**
+* v0.3.alpha0 - 26.7.2015
 ** use Browser Web Cryptography API (instead of pure JavaScript SHA/PBKDF2 implementation)
 ** Add optional: Two-way verification with Time-based One-time Password (TOTP) specified in RFC 6238.
 ** increase default PBKDF2 iteration (TODO: test on Raspberry Pi 1 !)
