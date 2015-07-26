@@ -92,13 +92,21 @@ class SeleniumTests(StaticLiveServerTestCase, SecureLoginBaseTestCase, SeleniumV
     """
     http://selenium-python.readthedocs.org/
     """
-
     @classmethod
     def setUpClass(cls):
         super(SeleniumTests, cls).setUpClass()
         cls.driver = webdriver.Firefox()
         cls.driver.set_window_size(800,600)
         cls.driver.set_window_position(0,0)
+
+        binary_path=cls.driver.binary._start_cmd
+        user_agent = cls.driver.execute_script("return navigator.userAgent;")
+        print(
+            (
+                "\nUsed browser binary: %s\n"
+                "user agent: %s\n"
+            ) % (binary_path, user_agent)
+        )
 
     @classmethod
     def tearDownClass(cls):
