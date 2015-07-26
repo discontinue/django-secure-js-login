@@ -1,9 +1,10 @@
-{% extends "admin/login.html" %}
+{% extends "admin/base_site.html" %}
 {% load i18n static %}
 
 {% block content_title %}<a href="https://github.com/jedie/django-secure-js-login">Secure-JS-Login:</a>{% endblock %}
 
 {% block extrahead %}
+<link rel="stylesheet" type="text/css" href="{% static "admin/css/login.css" %}" />
 <style>
 form {
     /* acticated via JavaScript */
@@ -22,9 +23,6 @@ var ITERATIONS2={{ ITERATIONS2 }};
 var CSRF_COOKIE_NAME="{{ CSRF_COOKIE_NAME }}";
 
 var get_salt_url="{% url 'secure-js-login:get_salt' %}";
-var ID_FORM="#login-form";
-var ID_USERNAME="#id_username";
-var ID_PASSWORD="#id_password";
 </script>
 <script type="text/javascript" src="{% static 'admin/js/jquery.min.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
 <script type="text/javascript" src="{% url 'django.views.i18n.javascript_catalog' packages='auth' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
@@ -38,7 +36,29 @@ jQuery(document).ready(function($) {
 </script>
 {% endblock extrahead %}
 
-{% block content %}
-<noscript><p class="errornote">Please enable JavaScript!</p></noscript>
-{{ block.super }}
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+
+{% block content %}{{ block.super }}
+<div id="content-main">
+    <noscript><p class="errornote">Please enable JavaScript!</p></noscript>
+    <form action="{{ app_path }}" method="post" id="login-form">{% csrf_token %}
+        <table>
+        {{ form.as_table }}
+        {% url 'admin_password_reset' as password_reset_url %}
+        {% if password_reset_url %}
+        <tr>
+            <td>
+                <div class="password-reset-link">
+                    <a href="{{ password_reset_url }}">{% trans 'Forgotten your password or username?' %}</a>
+                </div>
+            </td>
+        </tr>
+        {% endif %}
+        <tr>
+            <th></th>
+            <td><input type="submit" value="{% trans 'Log in' %}"/></td>
+        </tr>
+        </table>
+    </form>
+</div>
 {% endblock content %}

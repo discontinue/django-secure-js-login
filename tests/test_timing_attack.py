@@ -22,7 +22,7 @@ from django.test import override_settings
 from django.utils import six
 
 from secure_js_login.decorators import TimingAttackPreventer
-from tests.test_utils.test_cases import SecureLoginClientBaseTestCase
+from tests.test_utils.client_test_cases import SecureLoginClientBaseTestCase
 
 
 # MEASUREING_LOOPS = 10

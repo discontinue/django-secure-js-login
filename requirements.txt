@@ -1,0 +1,5 @@
+
+Django>=1.7,<1.9
+
+# https://pypi.python.org/pypi/django-otp
+django-otp>=0.3.1,<0.4

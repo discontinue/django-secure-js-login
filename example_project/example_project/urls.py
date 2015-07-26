@@ -24,8 +24,12 @@ from . import views
 
 urlpatterns = patterns('',
     url(r'^$', views.index),
+                       
     url(r'^debug_on/$', views.debug_on, name='debug_on'),
-    url(r'^debug_off/$', views.debug_off, name='debug_off'),
+    url(r'^debug_off/$', views.debug_off, name='debug_off'),                       
+
+    url(r'^totp_on/$', views.totp_on, name='totp_on'),
+    url(r'^totp_off/$', views.totp_off, name='totp_off'),
 
     url(r'^jsi18n/(?P<packages>\S+?)/$', 'django.views.i18n.javascript_catalog'),
     url(r'^login/', include(honypot_urls)),

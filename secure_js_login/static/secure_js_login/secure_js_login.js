@@ -366,6 +366,10 @@ function sleep(milliseconds) {
   }
 }
 
+var ID_FORM="#login-form";
+var ID_USERNAME="#id_username";
+var ID_PASSWORD="#id_password";
+var ID_OTP_TOKEN="#id_otp_token";
 function init_secure_login() {
     /*
         Secure-JS-Login
@@ -374,7 +378,7 @@ function init_secure_login() {
     $("#content-main").append('<p id="init_message">init...</p>');
 
     log("secure_js_login.js - init_secure_login()");
-    
+
     try {
         precheck_secure_login()
     } catch (e) {
@@ -489,7 +493,14 @@ function init_secure_login() {
 
     $("#init_message").slideUp();
     $("form").slideDown();
-    $(ID_USERNAME).focus();
+
+    if ($(ID_USERNAME).val() == "") {
+        $(ID_USERNAME).focus();
+    } else if ($(ID_PASSWORD).val() == "") {
+        $(ID_PASSWORD).focus();
+    } else {
+        $(ID_OTP_TOKEN).focus();
+    }
 }
 
 

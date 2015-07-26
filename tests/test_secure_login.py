@@ -9,7 +9,7 @@
     :license: GNU GPL v3 or above, see LICENSE for more details
 """
 
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 
 # set: DJANGO_SETTINGS_MODULE:tests.test_utils.test_settings to run the tests
 
@@ -23,7 +23,7 @@ from secure_js_login import settings as app_settings
 from secure_js_login.utils.crypt import CLIENT_DATA_LEN, HashValidator
 
 from tests.test_utils.manipulators import secure_pass_manipulator
-from tests.test_utils.test_cases import SecureLoginClientBaseTestCase, debug_response
+from tests.test_utils.client_test_cases import SecureLoginClientBaseTestCase
 
 
 class TestSecureLogin(SecureLoginClientBaseTestCase):
@@ -47,10 +47,10 @@ class TestSecureLogin(SecureLoginClientBaseTestCase):
         response = self.client.get(self.secure_login_url)
         # debug_response(response)
         self.assertContainsHtml(response,
-            '<input id="id_username" maxlength="254" name="username" type="text" class="required" />'
+            '<input id="id_username" maxlength="254" name="username" type="text" class="required" required="True" />'
         )
         self.assertContainsHtml(response,
-            '<input id="id_password" maxlength="%i" name="password" type="password" class="required"/>' % (
+            '<input id="id_password" maxlength="%i" name="password" type="password" class="required" required="True" />' % (
                 crypt.CLIENT_DATA_LEN
             )
         )

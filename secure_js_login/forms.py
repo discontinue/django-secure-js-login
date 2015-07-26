@@ -22,9 +22,11 @@ from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils.translation import ugettext as _
 from django.contrib.auth import authenticate
 from django.utils.text import capfirst
+
+import django_otp
+
 from secure_js_login.exceptions import SecureJSLoginError
 from secure_js_login.signals import secure_js_login_failed
-
 from secure_js_login.utils import crypt
 from secure_js_login.models import UserProfile, CNONCE_CACHE
 from secure_js_login import settings as app_settings
@@ -113,11 +115,24 @@ class SecureLoginForm(UsernameForm):
         max_length=crypt.CLIENT_DATA_LEN,
         widget=forms.PasswordInput
     )
+    otp_token = forms.IntegerField(
+        min_value=1, max_value=99999999,
+        label=_("OTP Token"),
+        help_text=_("Two-way verification with Time-based One-time Password (TOTP)"),
+    )
+
     def __init__(self, *args, **kwargs):
         super(SecureLoginForm, self).__init__(*args, **kwargs)
         # Not needed for django >= v1.8 !
         for visible in self.visible_fields():
             visible.field.widget.attrs['class'] = "required"
+            visible.field.widget.attrs["required"] = True
+
+        if app_settings.TOTP_NEEDED:
+            self.fields["otp_token"].widget.attrs["autocomplete"] = "off"
+        else:
+            # remove token field:
+            del(self.fields["otp_token"])
 
     def _secure_js_login_failed_signal_handler(self, sender, reason, **kwargs):
         if settings.DEBUG:
@@ -137,6 +152,15 @@ class SecureLoginForm(UsernameForm):
         if username and secure_password:
             if settings.DEBUG:
                 secure_js_login_failed.connect(self._secure_js_login_failed_signal_handler)
+
+            if app_settings.TOTP_NEEDED:
+                otp_token = self.cleaned_data.get("otp_token")
+                devices = tuple(django_otp.devices_for_user(self.user_cache))
+                if len(devices)!=1:
+                    raise forms.ValidationError("OTP devices count is not one, it's: %i" % len(devices))
+                device = devices[0]
+                if device.verify_token(otp_token) != True:
+                    raise forms.ValidationError("OTP token wrong!")
 
             self.user_cache = authenticate(
                 user=self.user_cache,

@@ -38,17 +38,20 @@ def run_unittests(test_labels=None):
     TestRunner = get_runner(settings)
     test_runner = TestRunner(
         verbosity=2,
-        # failfast=True,
+        failfast=True,
     )
 
     if test_labels is None or test_labels == ["test"]:
         test_labels = ['tests']
+
     failures = test_runner.run_tests(test_labels)
 
     sys.exit(bool(failures))
 
 
 def cli_run():
+    sys.stdout = sys.stderr # FIXME: Hack for PyCharm to sync output
+
     if "-v" in sys.argv or "--verbosity" in sys.argv:
         print("DJANGO_SETTINGS_MODULE=%r" % os.environ['DJANGO_SETTINGS_MODULE'])
 

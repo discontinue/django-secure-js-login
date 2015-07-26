@@ -11,8 +11,9 @@
 {% endblock %}
 
 {% block content %}
-    <h1>Example project test page.</h1>
-    <h2>Try out:</h2>
+    <h1>Django secure-js-login v{{ version }}</h1>
+    <h2>Example project test page.</h2>
+    <h3>Try out:</h3>
     <ul>
         <li>
             <a href="{% url 'secure-js-login:login' %}">{% url 'secure-js-login:login' %} - secure JS login</a>
@@ -27,16 +28,24 @@
         <li><a href="{% url 'honypot-login:login' %}">{% url 'honypot-login:login' %} - honypot login</a></li>
         <li><a href="{% url 'admin:index' %}">{% url 'admin:index' %} - Django Admin</a></li>
     </ul>
-    <h3>Hacks:</h3>
-    <p>
-        To see the different error messages, heres a ugly hacked view to turn settings.DEBUG on/off:
-    </p>
+    <h3>Hacked views to change settings:</h3>
     <ul>
-        {% if debug %}
-            <li><a href="{% url 'debug_off' %}">{% url 'debug_off' %} - Disable DEBUG</a></li>
-        {% else %}
-            <li><a href="{% url 'debug_on' %}">{% url 'debug_on' %} - Enable DEBUG</a></li>
-        {% endif %}
+        <li>
+            settings.<strong>DEBUG</strong> is <strong>{% if debug %}on{% else %}off{% endif %}</strong>:
+            {% if debug %}
+                <a href="{% url 'debug_off' %}">disable DEBUG</a>
+            {% else %}
+                <a href="{% url 'debug_on' %}">enable DEBUG</a>
+            {% endif %}
+        </li>
+        <li>
+            settings.<strong>TOTP_NEEDED</strong> is <strong>{% if totp %}on{% else %}off{% endif %}</strong>:
+            {% if totp %}
+                <a href="{% url 'totp_off' %}">disable TOTP_NEEDED</a>
+            {% else %}
+                <a href="{% url 'totp_on' %}">enable TOTP_NEEDED</a>
+            {% endif %}
+        </li>
     </ul>
     <hr />
     <h2>project links</h2>
