@@ -291,7 +291,7 @@ Check, if you add **'secure_js_login.auth_backends.SecureLoginAuthBackend'** to 
 |= secure-js-login |= Django    |= Python
 |>=v0.1.0          | v1.7, v1.8 | v2.7, v3.4
 
-(These are the unittests variants. Maybe other versions are compatible, too.)
+(These are the unittests variants. See [[https://github.com/jedie/django-secure-js-login/blob/master/.travis.yml|.travis.yml]], maybe other versions are compatible, too.)
 
 
 == changelog
@@ -311,7 +311,7 @@ Check, if you add **'secure_js_login.auth_backends.SecureLoginAuthBackend'** to 
 ** Docu update
 * v0.1.0 - 06.05.2015:
 ** initial release as reuseable app
-** Use PBKDF2
+** Use PBKDF2 (pure JavaScript Implementation)
 * 03.05.2015:
 ** Split from [[https://github.com/jedie/PyLucid/tree/7ee6f8312e7ade65ff3604eb9eab810c26c43ccb/pylucid_project/pylucid_plugins/auth|PyLucid CMS 'auth' plugin]]
 * 03.2010:
