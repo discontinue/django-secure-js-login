@@ -38,8 +38,7 @@ It used the outdated {{{.oncomplete()}}} / {{{.onerror()}}}
 Maybe a work-a-round is possible. Pull request are welcome ;)
 The new **Edge** browser in Windows 10 maybe supported.
 
-= Future plans
-== Time-based One-time Password (TOTP)
+=== Time-based One-time Password (TOTP)
 
 Optional: Two-way verification with Time-based One-time Password (TOTP) specified in [[https://tools.ietf.org/html/rfc6238|RFC 6238]].
 
@@ -298,6 +297,7 @@ Check, if you add **'secure_js_login.auth_backends.SecureLoginAuthBackend'** to 
 
 * v0.3.0 - **dev**
 ** use Browser Web Cryptography API (instead of pure JavaScript SHA/PBKDF2 implementation)
+** Add optional: Two-way verification with Time-based One-time Password (TOTP) specified in RFC 6238.
 ** increase default PBKDF2 iteration (TODO: test on Raspberry Pi 1 !)
 ** check cnonce against replay attacks
 ** refactor validation process
