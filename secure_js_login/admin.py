@@ -44,18 +44,21 @@ class TOTPDeviceAdmin2(TOTPDeviceAdmin):
     Add QR-Code in google Key-Uri-Format
     https://github.com/google/google-authenticator/wiki/Key-Uri-Format
     """
-    readonly_fields = ("qr_code","tokens")
+    readonly_fields = ("qr_code","tokens","key")
 
     def get_form(self, request, *args, **kwargs):
         self.request = request # FIXME
         return super(TOTPDeviceAdmin2, self).get_form(request, *args, **kwargs)
 
     def _qr_code(self, instance):
+        """
+        return generate html code with "otpauth://..." link and QR-code
+        """
         request = self.request # FIXME
         try:
             user = instance.user
         except ObjectDoesNotExist:
-            return "Please save first!"
+            return _("Please save first!")
 
         current_site = get_current_site(request)
         username = user.username
@@ -69,12 +72,13 @@ class TOTPDeviceAdmin2(TOTPDeviceAdmin):
             "secret": secret,
             "issuer": urlquote(username),
         }
-        context = {
-            "key_uri": key_uri,
-        }
+        context = {"key_uri": key_uri}
         return render_to_string("secure_js_login/qr_info.html", context)
 
     def qr_code(self, instance):
+        """
+        Display picture of QR-code from used secret
+        """
         try:
             return self._qr_code(instance)
         except Exception as err:
@@ -85,6 +89,9 @@ class TOTPDeviceAdmin2(TOTPDeviceAdmin):
     qr_code.allow_tags = True
 
     def tokens(self, instance):
+        """
+        Just display current acceptable TOTP tokens
+        """
         if not instance.pk:
             # e.g.: Use will create a new TOTP entry
             return "-"
@@ -98,14 +105,14 @@ class TOTPDeviceAdmin2(TOTPDeviceAdmin):
 
         return " ".join(["%s" % token for token in tokens])
 
-    fieldsets = TOTPDeviceAdmin.fieldsets
-    fieldsets.insert(1,
-        ('Tokens', {'fields': ['tokens']})
-    )
-    fieldsets.insert(2,
-        ('QR-Code', {'fields': ['qr_code']})
-    )
-
+    fieldsets = [
+        ('Identity', {'fields': ['user', 'name', 'confirmed']}),
+        ('TOTP Token', {'fields': ['qr_code', 'tokens']}),
+        ('Advanced options', {
+            'classes': ('collapse',),
+            'fields': ('key', 'step', 't0', 'digits', 'tolerance', 'drift')
+        }),
+    ]
 
 admin.site.unregister(TOTPDevice)
 admin.site.register(TOTPDevice, TOTPDeviceAdmin2)

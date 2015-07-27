@@ -1,7 +1,7 @@
 {% load i18n static %}
 
-<a href="{{ key_uri }}">{{ key_uri }}</a><br />
 <canvas id="qr-code"></canvas>
+<p><a href="{{ key_uri }}">{{ key_uri }}</a></p>
 <script src="{% static 'secure_js_login/qr.min.js' %}" onerror="JavaScript:alert('Error loading file ['+this.src+'] !');"></script>
 <script>
 (function($) {
