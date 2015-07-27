@@ -1,6 +1,6 @@
 = django-secure-js-login
 
-JavaScript Challenge-handshake authentication django app.
+JavaScript Challenge-handshake authentication django app with optional Time-based One-time Password (TOTP).
 
 | {{https://travis-ci.org/jedie/django-secure-js-login.svg|Build Status on travis-ci.org}} | [[https://travis-ci.org/jedie/django-secure-js-login/|travis-ci.org/jedie/django-secure-js-login]] |
 | {{https://coveralls.io/repos/jedie/django-secure-js-login/badge.svg|Coverage Status on coveralls.io}} | [[https://coveralls.io/r/jedie/django-secure-js-login|coveralls.io/r/jedie/django-secure-js-login]] |
@@ -42,6 +42,14 @@ The new **Edge** browser in Windows 10 maybe supported.
 
 Optional: Two-way verification with Time-based One-time Password (TOTP) specified in [[https://tools.ietf.org/html/rfc6238|RFC 6238]].
 
+Mini howto:
+* create user/password with the normal django admin views
+* goto //admin › Otp_Totp › TOTP devices// and use **Add TOTP device +**
+* select user
+* insert the device name (like: handy, tablet etc.)
+* use **save and continue editing**
+* The TOTP token will be displayed.
+
 Clients, e.g:
 
 * https://github.com/google/google-authenticator
@@ -52,13 +60,15 @@ Python Packages used:
 * https://pypi.python.org/pypi/django-otp
 * https://pypi.python.org/pypi/PyQRCode
 
-== switch from PBKDF2 to scrypt ?
+== TODO
 
-existing solutions:
+* Create Time-based One-time Password need separated views.
+* add own "set password view" that used WebCrypt API, so no plaintext password must be send for this
+* add password reset function
 
-https://pypi.python.org/pypi/django-scrypt/ that used https://pypi.python.org/pypi/scrypt/
+Maybe use email for password set/reset and TOTP stuff views.
 
-But both projects sleeps?
+
 
 == The procedure:
 
@@ -100,20 +110,37 @@ Server part:
 
 === secure?
 
-Secure-JS-Login is not really secure in comparison to https! e.g. the client can't validate if he really communicate with the server or with a [[https://en.wikipedia.org/wiki/Man-in-the-middle_attack|Man-in-the-middle attack]].
+Secure-JS-Login is not really secure without http**s**!
+e.g. the client can't validate if he really communicate with the server or with a [[https://en.wikipedia.org/wiki/Man-in-the-middle_attack|Man-in-the-middle attack]].
 
-However the used procedure is safer than plain-text authentication. In addition, on the server no plain-text passwords are stored. With the data that are stored on the server, can not be used alone.
+However the used procedure is safer than plain-text authentication.
+It protects you from a simple Ethernet- or wireless sniffer.
 
-If you have [[http://en.wikipedia.org/wiki/HTTPS|https]], you can combine it with Secure-JS-Login, similar to combine a digest auth with https.
+In addition, on the server no plain-text passwords are stored.
+With the data that are stored on the server, can not be used alone.
+
+If you have [[http://en.wikipedia.org/wiki/HTTPS|https]], you can combine it with Secure-JS-Login,
+similar to combine a digest auth with https.
 
 More information: [[http://www.pylucid.org/permalink/35/warum-js-sha-login-sinn-macht|Warum Secure-JS-Login Sinn macht...]] (german only, sorry)
 
 
 === why?
 
-Many, if not even all CMS/wiki/forum, used unsecure Login. User name and password send in **plaintext** over the Internet. A reliable solution offers only [[http://en.wikipedia.org/wiki/HTTPS|https]].
+Many, if not even all CMS/wiki/forum, used unsecure Login. User name and password send in **plaintext** over the Internet.
+A reliable solution offers only http**s**
 
 The Problem: No Provider offers secured HTTP connection for little money :(
+
+Hopefully, https://letsencrypt.org/ will fix that ;)
+
+
+=== Why not switch from PBKDF2 to XY ?
+
+There is [[https://en.wikipedia.org/wiki/Scrypt|scrypt] and [[https://en.wikipedia.org/wiki/Bcrypt|bcrypt]]
+and maybe somedays something like [[https://password-hashing.net/candidates.html|Argon2]]...
+
+But all these new enhanced password hashers aren't avaiable in Web Cryptography API.
 
 
 === alternative solutions
